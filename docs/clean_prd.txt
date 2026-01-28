@@ -1,0 +1,222 @@
+Cashphalt Parking Platform Ð Production Requirements Document (PRD)
+
+Version: v1.8 (Final Ð Extension Support)
+Status: Production-Ready MVP
+Purpose: This document defines the complete, production-grade requirements for building the Cashphalt parking platform. It consolidates all functional, operational, and architectural decisions and serves as the single source of truth for implementation using Antigravity.
+
+
+1. PRODUCT VISION
+Cashphalt is a multi-tenant, production-grade parking payments and parking management platform. It enables property owners and managers to monetize parking using QR codes and SMS-initiated flows, apply dynamic pricing, and actively monitor parking operations in real time.
+
+The platform is payment- and compliance-focused rather than enforcement-focused. Multiple concurrent parking sessions are allowed per space or lot.
+
+
+2. GUIDING PRODUCTION PRINCIPLES
+- Server-authoritative logic for pricing, discounts, session state, and extensions
+- Immutable financial and pricing records
+- Stripe webhooks as the source of truth for payment outcomes
+- Strict tenant isolation across all layers
+- Safe failure handling (no free or untracked parking)
+- Environment parity across local, staging, and production
+
+
+3. IN-SCOPE FEATURES (PRODUCTION MVP)
+Included:
+- Multi-tenant organizations
+- Spot-based and lot-based parking allocation modes (non-exclusive)
+- In-platform QR code generation for printed signage (non-rotating)
+- Text-to-Park (SMS initiation ? secure web payment link)
+- Dynamic pricing by date, day, and time
+- time based and flat pricing (30-minute increments)
+- Property-level maximum booking duration (hard cap)
+- Session extension capability (within max duration)
+- Discount and free parking codes, vouchering system
+- Stripe payments (Apple Pay + cards)
+- Parking management dashboard (live operations)
+- Revenue reporting and CSV exports
+- Revenue split configuration (90/10, 95/5 etc.) with stripe integration for payouts. 
+- Email and SMS confirmations, reminders
+- Observability and audit logging
+
+Explicitly Excluded (v1):
+- Refunds
+- Subscriptions or permits
+- Parking enforcement or capacity restriction logic
+- License plate recognition or cameras
+- Native mobile applications
+- Offline parking sessions
+
+
+4. USER ROLES & ACCESS CONTROL
+Roles:
+- Platform Super Admin
+- Organization Admin / Property Owner / Manager
+- Organization Staff (read-only)
+- Customer (Driver)
+
+All permissions are enforced server-side and scoped by organization.
+
+
+5. PROPERTY CONFIGURATION
+Each property must define:
+- Timezone (required, authoritative)
+- Parking allocation mode:
+  - Spot-Based
+  - Zone-Based
+- Maximum booking duration in hours (required, hard cap)
+- QR enabled (boolean)
+- SMS enabled (boolean)
+
+The maximum booking duration may be adjusted by admins or property owners/managers and applies to both initial bookings and extensions.
+
+
+6. PARKING ALLOCATION MODES (NON-EXCLUSIVE)
+Spot-Based:
+- Parking sessions reference a labeled space
+- Multiple concurrent sessions may exist for the same space
+- No exclusivity or blocking is enforced
+
+Zone-Based:
+- Parking sessions reference the property
+- No capacity limits are enforced
+- Unlimited concurrent sessions allowed
+
+
+7. QR CODE GENERATION (PRINTED SIGNAGE)
+- QR codes are generated within Cashphalt
+- QR codes are stable, non-rotating, and designed for printed signage
+- One QR per space (spot-based)
+- One or more QR codes per lot (lot-based)
+- Download formats: PNG and SVG
+- Bulk ZIP export per property
+- QR codes may be disabled if a space or property is deactivated
+
+
+8. DYNAMIC PRICING
+Pricing Rules:
+- Property-scoped
+- Priority-based
+- Date range, day-of-week, and time window constraints
+- Overnight windows supported
+
+Pricing Types:
+- Per-hour (60-minute increments only)
+- Flat rate
+
+Pricing is evaluated server-side and locked at session creation.
+
+
+9. BOOKING DURATION & EXTENSIONS
+- Duration granularity: 30-minute increments
+- Each property defines a maximum booking duration (hard cap)
+- Customers may extend an active session as it approaches expiration
+- Extensions are allowed only if the total booked duration does not exceed the property-defined maximum
+- Extensions are priced using the pricing rules active at the time of extension
+- Flat pricing extensions may be allowed or disallowed based on property configuration (default: allowed)
+
+
+10. DISCOUNT & FREE PARKING CODES
+Discount Types:
+- Percentage
+- Fixed amount
+- Free parking (100%)
+
+Rules:
+- One code per session
+- Applied after pricing calculation
+- Discount codes may be applied only at initial booking (not during extensions)
+- Free parking bypasses Stripe but still creates a session
+- Usage limits and expiration supported
+
+
+11. PARKING SESSIONS
+Sessions record:
+- Organization and property
+- Parking space (nullable for lot-based)
+- Entry method (QR or Text To Park)
+- Pricing rule snapshot (immutable)
+- Discount snapshot (immutable)
+- Start/end times
+- Total duration (hours)
+- Status lifecycle: created, pending_payment, active, expired
+
+Extensions update end_time and total duration but preserve the original pricing snapshot history.
+Multiple active sessions may exist for the same space or property.
+
+
+12. PAYMENTS (STRIPE)
+- Stripe is the only payment processor
+- Apple Pay and card supported
+- No refunds in MVP
+- Stripe webhooks drive state changes
+- Idempotent webhook handling required
+- Extensions generate additional payment intents as needed
+
+
+13. PARKING MANAGEMENT DASHBOARD
+The dashboard provides real-time operational visibility.
+
+Includes:
+- Property overview (total sessions, active, expiring, expired, revenue)
+- Space-level views (spot-based) showing all sessions per space
+- Lot-level views (lot-based) showing aggregate activity
+- Visual indicators for overlapping sessions (informational only)
+- Active/expired sessions table
+- Filters by property, status, and entry method
+
+The dashboard is informational only and does not enforce parking rules.
+
+
+14. CUSTOMER FLOWS
+QR Flow:
+Scan ? pricing ? duration (within max) ? discount (optional) ? pay ? confirm ? extend if needed
+
+SMS Flow:
+Text keyword ? receive secure link ? web booking & payment ? confirm ? extend if needed
+
+All payments occur via secure web pages, not SMS.
+
+
+15. NOTIFICATIONS
+Customers:
+- Email confirmation (required)
+- SMS confirmation 
+- Extension confirmation messages
+- Expiration reminder email and SMS messages
+
+Admins (optional):
+- Daily summaries
+
+
+16. SECURITY & COMPLIANCE
+- Strict tenant isolation
+- Non-guessable QR and SMS tokens
+- Rate limiting on public endpoints
+- No card data stored
+- Audit logs for pricing, discount, and extension events
+
+
+17. OBSERVABILITY & OPERATIONS
+- Centralized logging
+- Stripe webhook logs
+- Error tracking
+- Environment separation: local, staging, production
+
+
+18. ANTIGRAVITY USAGE
+- Antigravity used for development acceleration only
+- All code committed to standard Git repository
+- No proprietary runtime dependencies
+- All logic reviewable and testable
+
+
+19. ACCEPTANCE CRITERIA
+- Property-level maximum booking duration enforced as a hard cap
+- Session extensions allowed within maximum duration
+- QR and SMS flows behave identically post-initiation
+- Dynamic pricing and discounts are deterministic
+- Dashboard accurately reflects overlapping sessions
+- Multiple sessions per space and lot supported
+- Tenant isolation verified
+- Production reliability demonstrated
+
