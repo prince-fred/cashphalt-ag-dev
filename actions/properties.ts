@@ -20,6 +20,15 @@ export async function getProperty(id: string) {
     return data
 }
 
+export async function createProperty(data: any) {
+    return upsertProperty(data)
+}
+
+export async function updateProperty(id: string, data: any) {
+    // data should ideally be typed, but for now we trust the client logic or validate here
+    return upsertProperty({ ...data, id })
+}
+
 export async function upsertProperty(data: PropertyInsert | PropertyUpdate) {
     const supabase = await createClient()
     // For MVP, hardcoding organization_id if creating new, 
@@ -39,6 +48,7 @@ export async function upsertProperty(data: PropertyInsert | PropertyUpdate) {
     }
 
     revalidatePath('/admin/properties')
+    revalidatePath(`/admin/properties/${data.id}`)
     return { success: true }
 }
 
