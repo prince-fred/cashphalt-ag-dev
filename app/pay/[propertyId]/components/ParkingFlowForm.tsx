@@ -10,7 +10,11 @@ import { createParkingSession } from '@/actions/checkout'
 
 // Initialize Stripe outside component
 // process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY should be set
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+if (!publishableKey) {
+    console.error("Stripe Publishable Key is missing!");
+}
+const stripePromise = loadStripe(publishableKey!);
 
 type Property = Database['public']['Tables']['properties']['Row']
 
@@ -48,8 +52,11 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
 
             setPriceCents(result.amountCents)
             if (result.clientSecret) {
+                console.log("Client Secret received:", result.clientSecret);
                 setClientSecret(result.clientSecret)
                 setStep(3)
+            } else {
+                console.error("No client secret returned", result);
             }
         } catch (err) {
             console.error(err)

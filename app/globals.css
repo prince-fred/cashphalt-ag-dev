@@ -2,14 +2,25 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #121212;
+  --color-signal-yellow: #FFD700;
+  --color-matte-black: #121212;
+  --color-concrete-grey: #F4F4F5;
+  --color-slate-outline: #E4E4E7;
+  --color-error-red: #DC2626;
+  --color-success-green: #16A34A;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-signal-yellow: var(--color-signal-yellow);
+  --color-matte-black: var(--color-matte-black);
+  --color-concrete-grey: var(--color-concrete-grey);
+  --color-slate-outline: var(--color-slate-outline);
+  --color-error-red: var(--color-error-red);
+  --color-success-green: var(--color-success-green);
+  --font-inter: var(--font-inter);
 }
 
 @media (prefers-color-scheme: dark) {
