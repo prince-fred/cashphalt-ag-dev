@@ -1,28 +1,35 @@
 import Link from 'next/link'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, ArrowRight } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
-export default function SuccessPage({ params }: { params: { propertyId: string } }) {
-    // In a real app, verify the payment_intent_client_secret from query params
-    // and show specific session details.
+export default async function SuccessPage({ params }: { params: Promise<{ propertyId: string }> }) {
+    const { propertyId } = await params
 
     return (
-        <div className="min-h-screen bg-green-50 flex flex-col items-center justify-center p-4">
-            <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm w-full border border-green-100">
-                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle2 size={32} />
+        <div className="min-h-screen bg-concrete-grey flex flex-col items-center justify-center p-4">
+            <Card className="max-w-sm w-full text-center p-8 border-t-4 border-t-success-green shadow-xl">
+                <div className="w-20 h-20 bg-green-50 text-success-green rounded-full flex items-center justify-center mx-auto mb-6">
+                    <CheckCircle2 size={40} strokeWidth={2.5} />
                 </div>
-                <h1 className="text-2xl font-bold text-slate-900 mb-2">Payment Successful!</h1>
-                <p className="text-slate-500 mb-8">
-                    Your parking session is active. You will receive an email receipt shortly.
+
+                <h1 className="text-3xl font-bold text-matte-black mb-2">Payment Successful</h1>
+                <p className="text-gray-500 mb-8 leading-relaxed">
+                    Your parking session is active. A receipt has been sent to your email.
                 </p>
 
-                <Link
-                    href={`/pay/${params.propertyId}`}
-                    className="block w-full bg-slate-900 text-white py-3 rounded-xl font-semibold hover:bg-slate-800 transition-colors"
-                >
-                    Book Another Session
+                <Link href={`/pay/${propertyId}`} className="block w-full">
+                    <Button className="w-full text-lg h-14" variant="primary">
+                        Book Another Session
+                    </Button>
                 </Link>
-            </div>
+
+                <div className="mt-6 pt-6 border-t border-slate-outline">
+                    <Link href="/" className="text-sm font-bold text-gray-400 hover:text-matte-black flex items-center justify-center gap-1 transition-colors">
+                        RETURN TO HOME <ArrowRight size={14} />
+                    </Link>
+                </div>
+            </Card>
         </div>
     )
 }

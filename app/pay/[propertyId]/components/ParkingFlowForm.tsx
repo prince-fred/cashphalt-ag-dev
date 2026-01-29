@@ -1,15 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Database } from '@/database.types'
-import { Clock, CreditCard, Car, CheckCircle2 } from 'lucide-react'
+import { Clock, CreditCard, Car, CheckCircle2, ArrowRight, ArrowLeft } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { createParkingSession } from '@/actions/checkout'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 
-// Initialize Stripe outside component
-// process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY should be set
+// Helper hook for hydration-safe time
+function useClientTime(durationHours: number) {
+    const [timeStr, setTimeStr] = useState<string>('--:--')
+
+    useEffect(() => {
+        const date = new Date(Date.now() + durationHours * 60 * 60 * 1000)
+        setTimeStr(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+    }, [durationHours])
+
+    return timeStr
+}
+
+// Initialize Stripe
 const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 if (!publishableKey) {
     console.error("Stripe Publishable Key is missing!");
@@ -34,15 +47,12 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
     // Step 1 -> 2
     const handleDurationSelect = (hr: number) => {
         setDuration(hr)
-        // In a real app, we might fetch the exact price here from an API route to show the user
-        // For now we estimate or validte on "Review"
     }
 
     // Step 2 -> 3
     const handleReview = async () => {
         setIsProcessing(true)
         try {
-            // Call server action to create session & get secret
             const result = await createParkingSession({
                 propertyId: property.id,
                 durationHours: duration,
@@ -52,7 +62,6 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
 
             setPriceCents(result.amountCents)
             if (result.clientSecret) {
-                console.log("Client Secret received:", result.clientSecret);
                 setClientSecret(result.clientSecret)
                 setStep(3)
             } else {
@@ -67,142 +76,161 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
     }
 
     return (
-        <div>
-            {/* Progress Stepper */}
-            <div className="flex items-center justify-between mb-8 px-4">
+        <div className="space-y-8">
+            {/* Minimal Stepper */}
+            <div className="flex items-center gap-2 mb-6">
                 {[1, 2, 3].map((s) => (
-                    <div key={s} className="flex flex-col items-center relative z-10">
-                        <div className={twMerge(
-                            "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors duration-300",
-                            step >= s ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"
-                        )}>
-                            {s}
-                        </div>
-                        {s < 3 && (
-                            <div className={twMerge(
-                                "absolute top-4 left-6 w-[80px] h-[2px] -z-10",
-                                step > s ? "bg-indigo-600" : "bg-slate-100"
-                            )} />
-                        )}
-                    </div>
+                    <div key={s} className={twMerge(
+                        "h-1.5 flex-1 rounded-full transition-all duration-300",
+                        step >= s ? "bg-signal-yellow" : "bg-slate-100"
+                    )} />
                 ))}
             </div>
 
-            <div className="space-y-6">
+            <div className="min-h-[300px]">
                 {step === 1 && (
-                    <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                            Parking Duration
-                        </label>
-                        <div className="grid grid-cols-3 gap-3">
-                            {[1, 2, 3, 4, 8, 12, 24].map((hr) => (
-                                <button
-                                    key={hr}
-                                    onClick={() => handleDurationSelect(hr)}
-                                    disabled={hr > property.max_booking_duration_hours}
-                                    className={twMerge(
-                                        "py-3 px-2 rounded-lg border text-sm font-medium transition-all hover:scale-105 active:scale-95",
-                                        duration === hr
-                                            ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm"
-                                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300",
-                                        hr > property.max_booking_duration_hours && "opacity-50 cursor-not-allowed"
-                                    )}
-                                >
-                                    {hr} Hr{hr > 1 ? 's' : ''}
-                                </button>
-                            ))}
-                        </div>
-
-                        <div className="mt-6 flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-                            <div className="flex items-center gap-2 text-slate-500">
-                                <Clock size={18} />
-                                <span className="text-sm">Until {new Date(Date.now() + duration * 60 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                            {/* Note: This price is CLIENT SIDE estimate until we hit "Review" */}
-                            <div className="text-lg font-bold text-slate-900">
-                                Est. ${(duration * 5).toFixed(2)}
+                    <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-6">
+                        <div>
+                            <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-3">
+                                Select Duration
+                            </label>
+                            <div className="grid grid-cols-3 gap-3">
+                                {[1, 2, 3, 4, 8, 12, 24].map((hr) => (
+                                    <button
+                                        key={hr}
+                                        onClick={() => handleDurationSelect(hr)}
+                                        disabled={hr > property.max_booking_duration_hours}
+                                        className={twMerge(
+                                            "relative py-4 rounded-lg font-bold text-lg border-2 transition-all active:scale-95",
+                                            duration === hr
+                                                ? "border-matte-black bg-matte-black text-signal-yellow shadow-md"
+                                                : "border-slate-outline bg-white text-matte-black hover:border-matte-black",
+                                            hr > property.max_booking_duration_hours && "opacity-20 cursor-not-allowed border-none bg-slate-50"
+                                        )}
+                                    >
+                                        {hr}h
+                                        {duration === hr && (
+                                            <div className="absolute -top-2 -right-2 bg-signal-yellow text-matte-black rounded-full p-1 shadow-sm">
+                                                <CheckCircle2 size={12} strokeWidth={3} />
+                                            </div>
+                                        )}
+                                    </button>
+                                ))}
                             </div>
                         </div>
 
-                        <button
-                            onClick={() => setStep(2)}
-                            className="w-full mt-6 bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-xl font-semibold shadow-lg shadow-indigo-200 transition-all hover:shadow-xl active:scale-95 flex items-center justify-center gap-2"
-                        >
-                            Continue <CheckCircle2 size={18} />
-                        </button>
+                        <div className="bg-concrete-grey p-5 rounded-xl flex items-center justify-between border border-slate-outline">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white p-2 rounded-md border border-slate-outline">
+                                    <Clock size={18} className="text-matte-black" />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold text-gray-500 uppercase">Ends At</p>
+                                    <p className="font-mono font-bold text-matte-black">
+                                        {useClientTime(duration)}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xs font-bold text-gray-500 uppercase">Total</p>
+                                <p className="text-2xl font-bold text-matte-black">
+                                    ${(duration * 5).toFixed(2)}
+                                </p>
+                            </div>
+                        </div>
+
+                        <Button onClick={() => setStep(2)} className="w-full h-14 text-lg">
+                            Continue <ArrowRight size={20} className="ml-2" />
+                        </Button>
                     </div>
                 )}
 
                 {step === 2 && (
-                    <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                        <div className="space-y-4">
+                    <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-6">
+                        <div className="space-y-5">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-2">
                                     License Plate
                                 </label>
                                 <div className="relative">
-                                    <Car className="absolute left-3 top-3.5 text-slate-400" size={20} />
-                                    <input
+                                    <Car className="absolute left-4 top-4 text-gray-400" size={20} />
+                                    <Input
                                         type="text"
                                         placeholder="ABC 123"
                                         value={plate}
                                         onChange={(e) => setPlate(e.target.value.toUpperCase())}
-                                        className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-lg uppercase"
+                                        className="pl-12 font-mono text-xl uppercase h-14 border-2 focus-visible:border-matte-black"
+                                        autoFocus
                                     />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Email Receipt (Optional)
+                                <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-2">
+                                    Email Receipt <span className="text-gray-400 normal-case font-normal">(Optional)</span>
                                 </label>
-                                <input
+                                <Input
                                     type="email"
-                                    placeholder="you@example.com"
+                                    placeholder="you@email.com"
                                     value={customerEmail}
                                     onChange={(e) => setCustomerEmail(e.target.value)}
-                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="h-12"
                                 />
                             </div>
                         </div>
 
-                        <div className="mt-8 flex gap-3">
-                            <button
+                        <div className="flex gap-4 pt-4">
+                            <Button
+                                variant="outline"
                                 onClick={() => setStep(1)}
-                                className="flex-1 py-3.5 rounded-xl font-medium text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200"
+                                className="w-14 px-0 flex-none"
                             >
-                                Back
-                            </button>
-                            <button
+                                <ArrowLeft size={20} />
+                            </Button>
+                            <Button
                                 onClick={handleReview}
                                 disabled={!plate || isProcessing}
-                                className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-3.5 rounded-xl font-semibold shadow-lg shadow-indigo-200 flex justify-center items-center"
+                                className="flex-1 h-12 text-lg"
                             >
-                                {isProcessing ? <div className="animate-spin w-5 h-5 border-2 border-white/30 border-t-white rounded-full" /> : 'Review & Pay'}
-                            </button>
+                                {isProcessing ? (
+                                    <div className="animate-spin w-5 h-5 border-2 border-matte-black/30 border-t-matte-black rounded-full" />
+                                ) : (
+                                    'Review & Pay'
+                                )}
+                            </Button>
                         </div>
                     </div>
                 )}
 
                 {step === 3 && clientSecret && (
                     <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                        <div className="bg-slate-50 rounded-xl p-4 space-y-2 mb-6 border border-slate-100">
-                            <div className="flex justify-between text-sm">
-                                <span className="text-slate-500">Duration</span>
-                                <span className="font-medium">{duration} Hour{duration > 1 ? 's' : ''}</span>
+                        <div className="bg-concrete-grey rounded-xl p-5 mb-6 border border-slate-outline">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm text-gray-500 font-medium">PLATE</span>
+                                <span className="font-mono font-bold text-lg bg-white px-2 py-0.5 rounded border border-slate-outline">{plate}</span>
                             </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-slate-500">Vehicle</span>
-                                <span className="font-mono font-medium">{plate}</span>
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-500 font-medium">DURATION</span>
+                                <span className="font-bold">{duration} Hour{duration > 1 ? 's' : ''}</span>
                             </div>
-                            <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-lg">
-                                <span className="font-bold text-slate-900">Total</span>
-                                <span className="font-bold text-indigo-600">${(priceCents / 100).toFixed(2)}</span>
+                            <div className="mt-4 pt-3 border-t border-slate-outline flex justify-between items-center">
+                                <span className="font-bold text-lg">Total Due</span>
+                                <span className="font-bold text-2xl text-matte-black">${(priceCents / 100).toFixed(2)}</span>
                             </div>
                         </div>
 
                         <Elements stripe={stripePromise} options={{
                             clientSecret,
-                            appearance: { theme: 'stripe', labels: 'floating' }
+                            appearance: {
+                                theme: 'flat',
+                                variables: {
+                                    colorPrimary: '#121212',
+                                    colorBackground: '#ffffff',
+                                    colorText: '#121212',
+                                    colorDanger: '#DC2626',
+                                    fontFamily: 'Inter, system-ui, sans-serif',
+                                    borderRadius: '8px',
+                                }
+                            }
                         }}>
                             <CheckoutForm propertyId={property.id} />
                         </Elements>
@@ -228,7 +256,6 @@ function CheckoutForm({ propertyId }: { propertyId: string }) {
         const { error } = await stripe.confirmPayment({
             elements,
             confirmParams: {
-                // Ensure this route exists!
                 return_url: `${window.location.origin}/pay/${propertyId}/success`,
             }
         })
@@ -240,23 +267,25 @@ function CheckoutForm({ propertyId }: { propertyId: string }) {
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
             <PaymentElement />
-            {msg && <div className="text-red-500 text-sm">{msg}</div>}
-            <button
-                type="submit"
-                disabled={!stripe || isProcessing}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2"
-            >
-                {isProcessing ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                    <>
-                        Complete Payment
-                        <CreditCard size={18} />
-                    </>
-                )}
-            </button>
+            {msg && <div className="text-error-red text-sm font-medium bg-red-50 p-3 rounded-md border border-red-100">{msg}</div>}
+
+            <div className="flex gap-4">
+                <Button
+                    variant="secondary"
+                    className="w-full text-lg h-14"
+                    disabled={!stripe || isProcessing}
+                >
+                    {isProcessing ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                        <>
+                            Pay Now <CreditCard size={20} className="ml-2" />
+                        </>
+                    )}
+                </Button>
+            </div>
         </form>
     )
 }
