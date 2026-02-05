@@ -30,9 +30,9 @@ export async function POST(req: Request) {
                 const { sessionId, type, durationHours } = paymentIntent.metadata
 
                 if (sessionId) {
-                    console.log(`[Stripe] Payment Succeeded for Session: ${sessionId} Type: ${type || 'INITIAL'}`)
-
                     const transactionType = type === 'EXTENSION' ? 'EXTENSION' : 'INITIAL'
+
+                    console.log(`[Stripe] Payment Succeeded. Session: ${sessionId}, Type: ${transactionType}, Amount: ${paymentIntent.amount}`)
 
                     // 1. Log Transaction
                     const { error: txError } = await supabase
@@ -45,7 +45,12 @@ export async function POST(req: Request) {
                             type: transactionType
                         })
 
-                    if (txError) console.error('[Stripe] Transaction Log Error:', txError)
+                    if (txError) {
+                        console.error('[Stripe] Transaction Log Error:', txError)
+                        console.error('[Stripe] Tx Context:', { sessionId, pi: paymentIntent.id })
+                    } else {
+                        console.log('[Stripe] Transaction Logged Successfully')
+                    }
 
                     // 2. Update Session
                     if (transactionType === 'EXTENSION') {
@@ -62,35 +67,44 @@ export async function POST(req: Request) {
                             const currentEnd = new Date(session.end_time_current)
                             const newEnd = new Date(currentEnd.getTime() + addedHours * 60 * 60 * 1000)
 
-                            await supabase
+                            const { error: updateError } = await supabase
                                 .from('sessions')
                                 .update({
                                     end_time_current: newEnd.toISOString(),
-                                    // Update total price context if needed, or just rely on transactions sum
-                                    total_price_cents: session.total_price_cents + paymentIntent.amount
+                                    total_price_cents: (session.total_price_cents || 0) + paymentIntent.amount
                                 })
                                 .eq('id', sessionId)
+
+                            if (updateError) console.error('[Stripe] Ext Session Update Error:', updateError)
+                            else console.log(`[Stripe] Extended session to ${newEnd.toISOString()}`)
+                        } else {
+                            console.error('[Stripe] Session not found for extension:', sessionId)
                         }
 
                     } else {
                         // INITIAL
-                        await supabase
+                        const { error: updateError } = await supabase
                             .from('sessions')
                             .update({
                                 status: 'ACTIVE',
                                 payment_intent_id: paymentIntent.id
                             })
                             .eq('id', sessionId)
+
+                        if (updateError) console.error('[Stripe] Init Session Update Error:', updateError)
+                        else console.log('[Stripe] Session Activated')
                     }
+                } else {
+                    console.warn('[Stripe] Missing sessionId in metadata:', paymentIntent.metadata)
                 }
                 break;
 
             case 'payment_intent.payment_failed':
-                // Optional: Log failure or notify user
+                console.log('[Stripe] Payment Failed:', event.data.object.id)
                 break;
         }
     } catch (err) {
-        console.error(err)
+        console.error('[Stripe] Handler Exception:', err)
         return new NextResponse('Webhook handler failed', { status: 500 })
     }
 

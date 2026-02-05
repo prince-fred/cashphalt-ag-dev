@@ -174,7 +174,7 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
                                 <Tag className="absolute left-3 top-3 text-gray-400" size={16} />
                                 <Input
                                     placeholder="Promocode"
-                                    className="pl-9 h-10 text-sm uppercase"
+                                    className="pl-9 h-10 text-sm uppercase text-matte-black font-medium"
                                     value={discountCode}
                                     onChange={e => setDiscountCode(e.target.value.toUpperCase().trim())}
                                 />
