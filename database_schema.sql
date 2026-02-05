@@ -51,10 +51,25 @@ create table pricing_rules (
   is_active boolean default true,
   
   -- Price
-  rate_type text check (rate_type in ('FLAT', 'HOURLY')) not null,
+  rate_type text check (rate_type in ('FLAT', 'HOURLY', 'DAILY')) not null,
   amount_cents int not null, -- $5.00 = 500
   
   created_at timestamptz default now()
+);
+
+-- 4b. Discounts
+create table discounts (
+  id uuid primary key default uuid_generate_v4(),
+  property_id uuid references properties(id) not null,
+  code text not null,
+  type text check (type in ('PERCENTAGE', 'FIXED_AMOUNT')) not null,
+  amount int not null, 
+  usage_limit int, 
+  usage_count int default 0,
+  expires_at timestamptz,
+  is_active boolean default true,
+  created_at timestamptz default now(),
+  unique(property_id, code)
 );
 
 -- 5. Sessions
@@ -74,6 +89,10 @@ create table sessions (
   -- Payment
   payment_intent_id text,
   total_price_cents int not null default 0,
+  
+  -- Discount
+  discount_id uuid references discounts(id),
+  discount_amount_cents int default 0,
   
   -- Customer
   customer_email text,

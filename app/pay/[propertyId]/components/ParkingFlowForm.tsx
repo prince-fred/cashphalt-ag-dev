@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { Database } from '@/database.types'
-import { Clock, CreditCard, Car, CheckCircle2, ArrowRight, ArrowLeft } from 'lucide-react'
+import { Clock, CreditCard, Car, CheckCircle2, ArrowRight, ArrowLeft, Tag } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { createParkingSession } from '@/actions/checkout'
+import { getParkingPrice } from '@/actions/parking'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
@@ -42,11 +43,28 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
     const [customerEmail, setCustomerEmail] = useState('')
     const [clientSecret, setClientSecret] = useState<string | null>(null)
     const [priceCents, setPriceCents] = useState(500) // Default fallback
+    const [discountCode, setDiscountCode] = useState('')
+    const [appliedDiscount, setAppliedDiscount] = useState<{ code: string, amount: number } | null>(null)
     const [isProcessing, setIsProcessing] = useState(false)
+    const [checkingPrice, setCheckingPrice] = useState(false)
+
+    // Call hook unconditionally
+    const clientTimeStr = useClientTime(duration)
 
     // Step 1 -> 2
-    const handleDurationSelect = (hr: number) => {
+    const handleDurationSelect = async (hr: number) => {
         setDuration(hr)
+        // Recalculate price if duration changes
+        setCheckingPrice(true)
+        const res = await getParkingPrice(property.id, hr, appliedDiscount?.code)
+        setPriceCents(res.amountCents)
+        if (res.discountApplied) {
+            setAppliedDiscount({
+                code: res.discountApplied.code,
+                amount: res.discountAmountCents
+            })
+        }
+        setCheckingPrice(false)
     }
 
     // Step 2 -> 3
@@ -57,7 +75,8 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
                 propertyId: property.id,
                 durationHours: duration,
                 plate,
-                customerEmail
+                customerEmail,
+                discountCode: appliedDiscount?.code
             })
 
             setPriceCents(result.amountCents)
@@ -125,18 +144,66 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
                                     <Clock size={18} className="text-matte-black" />
                                 </div>
                                 <div>
-                                    <p className="text-xs font-bold text-gray-500 uppercase">Ends At</p>
                                     <p className="font-mono font-bold text-matte-black">
-                                        {useClientTime(duration)}
+                                        {clientTimeStr}
                                     </p>
                                 </div>
                             </div>
                             <div className="text-right">
                                 <p className="text-xs font-bold text-gray-500 uppercase">Total</p>
-                                <p className="text-2xl font-bold text-matte-black">
-                                    ${(duration * 5).toFixed(2)}
-                                </p>
+                                {appliedDiscount ? (
+                                    <div>
+                                        <p className="text-sm text-gray-400 line-through decoration-red-500">
+                                            ${(duration * 5).toFixed(2)}
+                                        </p>
+                                        <p className="text-2xl font-bold text-signal-yellow bg-matte-black px-2 rounded">
+                                            ${(priceCents / 100).toFixed(2)}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <p className="text-2xl font-bold text-matte-black">
+                                        ${(priceCents / 100).toFixed(2)}
+                                    </p>
+                                )}
                             </div>
+                        </div>
+
+                        {/* Promo Code Input */}
+                        <div className="flex gap-2 items-center">
+                            <div className="relative flex-1">
+                                <Tag className="absolute left-3 top-3 text-gray-400" size={16} />
+                                <Input
+                                    placeholder="Promocode"
+                                    className="pl-9 h-10 text-sm uppercase"
+                                    value={discountCode}
+                                    onChange={e => setDiscountCode(e.target.value.toUpperCase().trim())}
+                                />
+                            </div>
+                            <Button
+                                variant="outline"
+                                className="h-10 text-xs px-3"
+                                onClick={async () => {
+                                    setCheckingPrice(true)
+                                    // Call action to check validity and get new price
+                                    const res = await getParkingPrice(property.id, duration, discountCode)
+                                    if (res.discountApplied) {
+                                        setPriceCents(res.amountCents)
+                                        setAppliedDiscount({
+                                            code: res.discountApplied.code,
+                                            amount: res.discountAmountCents
+                                        })
+                                    } else {
+                                        // Reset if invalid or empty
+                                        setPriceCents(res.amountCents)
+                                        setAppliedDiscount(null)
+                                        if (discountCode) alert('Invalid code')
+                                    }
+                                    setCheckingPrice(false)
+                                }}
+                                disabled={checkingPrice || !discountCode}
+                            >
+                                {checkingPrice ? '...' : 'Apply'}
+                            </Button>
                         </div>
 
                         <Button onClick={() => setStep(2)} className="w-full h-14 text-lg">

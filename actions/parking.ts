@@ -1,6 +1,13 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+import { calculatePrice } from '@/lib/parking/pricing'
+
+export async function getParkingPrice(propertyId: string, durationHours: number, discountCode?: string) {
+    const startTime = new Date()
+    return calculatePrice(propertyId, startTime, durationHours, discountCode)
+}
+
 import { cache } from 'react'
 
 export const getPropertyBySlugOrId = cache(async (identifier: string) => {

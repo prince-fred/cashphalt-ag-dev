@@ -1,0 +1,149 @@
+'use client'
+
+import { useState } from 'react'
+import { Database } from '@/database.types'
+import { twMerge } from 'tailwind-merge'
+import { loadStripe } from '@stripe/stripe-js'
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { extendSession } from '@/actions/extension'
+import { Button } from '@/components/ui/Button'
+import { CheckCircle2, CreditCard, ArrowRight } from 'lucide-react'
+
+// Initialize Stripe
+const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = loadStripe(publishableKey!);
+
+type Session = Database['public']['Tables']['sessions']['Row']
+type Property = Database['public']['Tables']['properties']['Row']
+
+interface ExtensionFlowProps {
+    session: Session
+    property: Property
+}
+
+export function ExtensionFlow({ session, property }: ExtensionFlowProps) {
+    const [step, setStep] = useState<1 | 2>(1)
+    const [duration, setDuration] = useState(1)
+    const [clientSecret, setClientSecret] = useState<string | null>(null)
+    const [priceCents, setPriceCents] = useState<number | null>(null)
+    const [isProcessing, setIsProcessing] = useState(false)
+
+    const handleExtendInit = async () => {
+        setIsProcessing(true)
+        try {
+            const result = await extendSession({
+                sessionId: session.id,
+                durationHours: duration
+            })
+            setPriceCents(result.amountCents)
+            if (result.clientSecret) {
+                setClientSecret(result.clientSecret)
+                setStep(2)
+            }
+        } catch (err) {
+            console.error(err)
+            alert("Extension failed: " + (err as Error).message)
+        } finally {
+            setIsProcessing(false)
+        }
+    }
+
+    return (
+        <div className="space-y-6">
+            {step === 1 && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+                    <div>
+                        <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-3">
+                            Add Time
+                        </label>
+                        <div className="grid grid-cols-3 gap-3">
+                            {[1, 2, 3, 4, 8].map((hr) => (
+                                <button
+                                    key={hr}
+                                    onClick={() => setDuration(hr)}
+                                    // Check if extension + current duration > max?
+                                    // Should be calculated properly, but simple check:
+                                    className={twMerge(
+                                        "relative py-3 rounded-lg font-bold text-lg border-2 transition-all active:scale-95",
+                                        duration === hr
+                                            ? "border-matte-black bg-matte-black text-signal-yellow shadow-md"
+                                            : "border-slate-outline bg-white text-matte-black hover:border-matte-black"
+                                    )}
+                                >
+                                    +{hr}h
+                                    {duration === hr && (
+                                        <div className="absolute -top-2 -right-2 bg-signal-yellow text-matte-black rounded-full p-1 shadow-sm">
+                                            <CheckCircle2 size={10} strokeWidth={3} />
+                                        </div>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="bg-concrete-grey p-4 rounded-xl flex justify-between items-center border border-slate-outline">
+                        <span className="font-bold text-gray-500 text-sm uppercase">Estimated Cost</span>
+                        <span className="font-bold text-xl text-matte-black">${(duration * 5).toFixed(2)}</span>
+                    </div>
+
+                    <Button
+                        onClick={handleExtendInit}
+                        disabled={isProcessing}
+                        className="w-full h-12 text-lg"
+                    >
+                        {isProcessing ? 'Processing...' : 'Review & Pay'} <ArrowRight size={18} className="ml-2" />
+                    </Button>
+                </div>
+            )}
+
+            {step === 2 && clientSecret && (
+                <div className="animate-in fade-in slide-in-from-right-4">
+                    <div className="bg-concrete-grey rounded-xl p-4 mb-4 border border-slate-outline flex justify-between items-center">
+                        <span className="font-bold text-gray-500 text-sm uppercase">Extension</span>
+                        <span className="font-bold text-xl text-matte-black">${((priceCents || 0) / 100).toFixed(2)}</span>
+                    </div>
+
+                    <Elements stripe={stripePromise} options={{
+                        clientSecret,
+                        appearance: { theme: 'flat' }
+                    }}>
+                        <ExtensionPaymentForm />
+                    </Elements>
+                </div>
+            )}
+        </div>
+    )
+}
+
+function ExtensionPaymentForm() {
+    const stripe = useStripe()
+    const elements = useElements()
+    const [msg, setMsg] = useState('')
+    const [isProcessing, setIsProcessing] = useState(false)
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!stripe || !elements) return
+        setIsProcessing(true)
+
+        const { error } = await stripe.confirmPayment({
+            elements,
+            confirmParams: {
+                return_url: window.location.href + '/success', // Need success page for extensions too?
+            }
+        })
+
+        if (error) setMsg(error.message ?? 'Payment failed')
+        setIsProcessing(false)
+    }
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <PaymentElement />
+            {msg && <div className="text-red-500 text-sm">{msg}</div>}
+            <Button disabled={!stripe || isProcessing} className="w-full h-12">
+                {isProcessing ? 'Processing...' : 'Pay Extension'}
+            </Button>
+        </form>
+    )
+}

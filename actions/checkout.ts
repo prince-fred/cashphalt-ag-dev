@@ -9,15 +9,16 @@ interface CreateSessionParams {
     propertyId: string
     durationHours: number
     plate: string
-    customerEmail?: string // Optional for now
+    customerEmail?: string
+    discountCode?: string
 }
 
-export async function createParkingSession({ propertyId, durationHours, plate, customerEmail }: CreateSessionParams) {
+export async function createParkingSession({ propertyId, durationHours, plate, customerEmail, discountCode }: CreateSessionParams) {
     const supabase = await createClient()
 
     // 1. Calculate Price Authoritatively
     const startTime = new Date()
-    const { amountCents, ruleApplied } = await calculatePrice(propertyId, startTime, durationHours)
+    const { amountCents, ruleApplied, discountApplied, discountAmountCents } = await calculatePrice(propertyId, startTime, durationHours, discountCode)
 
     // 2. Create Pending Session in DB
     // This locks in the price and the rule used.
@@ -33,7 +34,9 @@ export async function createParkingSession({ propertyId, durationHours, plate, c
             total_price_cents: amountCents,
             status: 'PENDING_PAYMENT',
             vehicle_plate: plate,
-            customer_email: customerEmail
+            customer_email: customerEmail,
+            discount_id: discountApplied?.id || null,
+            discount_amount_cents: discountAmountCents
         })
         .select()
         .single()

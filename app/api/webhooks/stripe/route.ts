@@ -27,22 +27,60 @@ export async function POST(req: Request) {
             case 'payment_intent.succeeded':
                 const paymentIntent = event.data.object as Stripe.PaymentIntent
                 // Retrieve metadata
-                const { sessionId } = paymentIntent.metadata
+                const { sessionId, type, durationHours } = paymentIntent.metadata
 
                 if (sessionId) {
-                    console.log(`[Stripe] Payment Succeeded for Session: ${sessionId}`)
+                    console.log(`[Stripe] Payment Succeeded for Session: ${sessionId} Type: ${type || 'INITIAL'}`)
 
-                    const { error } = await supabase
-                        .from('sessions')
-                        .update({
-                            status: 'ACTIVE',
-                            payment_intent_id: paymentIntent.id
+                    const transactionType = type === 'EXTENSION' ? 'EXTENSION' : 'INITIAL'
+
+                    // 1. Log Transaction
+                    const { error: txError } = await supabase
+                        .from('session_transactions')
+                        .insert({
+                            session_id: sessionId,
+                            payment_intent_id: paymentIntent.id,
+                            amount_cents: paymentIntent.amount,
+                            status: 'succeeded',
+                            type: transactionType
                         })
-                        .eq('id', sessionId)
 
-                    if (error) {
-                        console.error('[Stripe] DB Update Error:', error)
-                        return new NextResponse('Database update failed', { status: 500 })
+                    if (txError) console.error('[Stripe] Transaction Log Error:', txError)
+
+                    // 2. Update Session
+                    if (transactionType === 'EXTENSION') {
+                        // Fetch current end time to add to it
+                        const { data: session } = await supabase
+                            .from('sessions')
+                            .select('end_time_current, total_price_cents')
+                            .eq('id', sessionId)
+                            .single()
+
+                        if (session) {
+                            // Add hours
+                            const addedHours = parseFloat(durationHours || '0')
+                            const currentEnd = new Date(session.end_time_current)
+                            const newEnd = new Date(currentEnd.getTime() + addedHours * 60 * 60 * 1000)
+
+                            await supabase
+                                .from('sessions')
+                                .update({
+                                    end_time_current: newEnd.toISOString(),
+                                    // Update total price context if needed, or just rely on transactions sum
+                                    total_price_cents: session.total_price_cents + paymentIntent.amount
+                                })
+                                .eq('id', sessionId)
+                        }
+
+                    } else {
+                        // INITIAL
+                        await supabase
+                            .from('sessions')
+                            .update({
+                                status: 'ACTIVE',
+                                payment_intent_id: paymentIntent.id
+                            })
+                            .eq('id', sessionId)
                     }
                 }
                 break;
