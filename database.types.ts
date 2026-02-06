@@ -103,6 +103,40 @@ export interface Database {
                     vehicle_plate: string | null
                     created_at: string
                 }
+                Insert: {
+                    id?: string
+                    property_id: string
+                    spot_id?: string | null
+                    start_time: string
+                    end_time_initial: string
+                    end_time_current: string
+                    status?: 'CREATED' | 'PENDING_PAYMENT' | 'ACTIVE' | 'COMPLETED' | 'EXPIRED'
+                    payment_intent_id?: string | null
+                    total_price_cents: number
+                    discount_id?: string | null
+                    discount_amount_cents?: number | null
+                    customer_email?: string | null
+                    customer_phone?: string | null
+                    vehicle_plate?: string | null
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    property_id?: string
+                    spot_id?: string | null
+                    start_time?: string
+                    end_time_initial?: string
+                    end_time_current?: string
+                    status?: 'CREATED' | 'PENDING_PAYMENT' | 'ACTIVE' | 'COMPLETED' | 'EXPIRED'
+                    payment_intent_id?: string | null
+                    total_price_cents?: number
+                    discount_id?: string | null
+                    discount_amount_cents?: number | null
+                    customer_email?: string | null
+                    customer_phone?: string | null
+                    vehicle_plate?: string | null
+                    created_at?: string
+                }
             }
             discounts: {
                 Row: {
