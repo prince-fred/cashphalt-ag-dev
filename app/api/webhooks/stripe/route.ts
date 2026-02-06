@@ -1,6 +1,8 @@
+
 import { headers } from 'next/headers'
 import { stripe } from '@/lib/stripe'
 import { createAdminClient } from '@/utils/supabase/admin'
+import { sendSessionReceipt } from '@/lib/notifications'
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
@@ -47,53 +49,66 @@ export async function POST(req: Request) {
 
                     if (txError) {
                         console.error('[Stripe] Transaction Log Error:', txError)
-                        console.error('[Stripe] Tx Context:', { sessionId, pi: paymentIntent.id })
                     } else {
                         console.log('[Stripe] Transaction Logged Successfully')
                     }
 
-                    // 2. Update Session
-                    if (transactionType === 'EXTENSION') {
-                        // Fetch current end time to add to it
-                        const { data: session } = await supabase
-                            .from('sessions')
-                            .select('end_time_current, total_price_cents')
-                            .eq('id', sessionId)
-                            .single()
+                    // 2. Fetch Session Details for Notification & Logic
+                    const { data: sessionData, error: fetchError } = await supabase
+                        .from('sessions')
+                        .select('*, properties(name)')
+                        .eq('id', sessionId)
+                        .single()
 
-                        if (session) {
-                            // Add hours
+                    if (sessionData && !fetchError) {
+                        let newEndTime = sessionData.end_time_current
+
+                        // 3. Update Session State
+                        if (transactionType === 'EXTENSION') {
                             const addedHours = parseFloat(durationHours || '0')
-                            const currentEnd = new Date(session.end_time_current)
-                            const newEnd = new Date(currentEnd.getTime() + addedHours * 60 * 60 * 1000)
+                            const currentEnd = new Date(sessionData.end_time_current)
+                            newEndTime = new Date(currentEnd.getTime() + addedHours * 60 * 60 * 1000).toISOString()
 
                             const { error: updateError } = await supabase
                                 .from('sessions')
                                 .update({
-                                    end_time_current: newEnd.toISOString(),
-                                    total_price_cents: (session.total_price_cents || 0) + paymentIntent.amount
+                                    end_time_current: newEndTime,
+                                    total_price_cents: (sessionData.total_price_cents || 0) + paymentIntent.amount
                                 })
                                 .eq('id', sessionId)
 
                             if (updateError) console.error('[Stripe] Ext Session Update Error:', updateError)
-                            else console.log(`[Stripe] Extended session to ${newEnd.toISOString()}`)
+                            else console.log(`[Stripe] Extended session to ${newEndTime}`)
+
                         } else {
-                            console.error('[Stripe] Session not found for extension:', sessionId)
+                            // INITIAL
+                            const { error: updateError } = await supabase
+                                .from('sessions')
+                                .update({
+                                    status: 'ACTIVE',
+                                    payment_intent_id: paymentIntent.id
+                                })
+                                .eq('id', sessionId)
+
+                            if (updateError) console.error('[Stripe] Init Session Update Error:', updateError)
+                            else console.log('[Stripe] Session Activated')
                         }
 
-                    } else {
-                        // INITIAL
-                        const { error: updateError } = await supabase
-                            .from('sessions')
-                            .update({
-                                status: 'ACTIVE',
-                                payment_intent_id: paymentIntent.id
-                            })
-                            .eq('id', sessionId)
+                        // 4. Send Notifications
+                        await sendSessionReceipt({
+                            toEmail: sessionData.customer_email,
+                            toPhone: null,
+                            plate: sessionData.vehicle_plate,
+                            propertyName: (sessionData.properties as any)?.name || 'Parking Lot',
+                            amountCents: paymentIntent.amount,
+                            endTime: new Date(newEndTime),
+                            link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://cashphalt.com'}/pay/extend/${sessionId}`
+                        })
 
-                        if (updateError) console.error('[Stripe] Init Session Update Error:', updateError)
-                        else console.log('[Stripe] Session Activated')
+                    } else {
+                        console.error('[Stripe] Failed to fetch session details:', fetchError)
                     }
+
                 } else {
                     console.warn('[Stripe] Missing sessionId in metadata:', paymentIntent.metadata)
                 }

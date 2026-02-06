@@ -142,6 +142,35 @@ export interface Database {
                     created_at?: string
                 }
             }
+            session_transactions: {
+                Row: {
+                    id: string
+                    session_id: string
+                    payment_intent_id: string | null
+                    amount_cents: number
+                    status: string
+                    type: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    session_id: string
+                    payment_intent_id?: string | null
+                    amount_cents: number
+                    status: string
+                    type?: string
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    session_id?: string
+                    payment_intent_id?: string | null
+                    amount_cents?: number
+                    status?: string
+                    type?: string
+                    created_at?: string
+                }
+            }
         }
     }
 }

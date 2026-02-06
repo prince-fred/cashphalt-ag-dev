@@ -8,6 +8,7 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { extendSession } from '@/actions/extension'
 import { Button } from '@/components/ui/Button'
 import { CheckCircle2, CreditCard, ArrowRight } from 'lucide-react'
+import { Slider } from '@/components/ui/Slider'
 
 // Initialize Stripe
 const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
@@ -56,28 +57,19 @@ export function ExtensionFlow({ session, property }: ExtensionFlowProps) {
                         <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-3">
                             Add Time
                         </label>
-                        <div className="grid grid-cols-3 gap-3">
-                            {[1, 2, 3, 4, 8].map((hr) => (
-                                <button
-                                    key={hr}
-                                    onClick={() => setDuration(hr)}
-                                    // Check if extension + current duration > max?
-                                    // Should be calculated properly, but simple check:
-                                    className={twMerge(
-                                        "relative py-3 rounded-lg font-bold text-lg border-2 transition-all active:scale-95",
-                                        duration === hr
-                                            ? "border-matte-black bg-matte-black text-signal-yellow shadow-md"
-                                            : "border-slate-outline bg-white text-matte-black hover:border-matte-black"
-                                    )}
-                                >
-                                    +{hr}h
-                                    {duration === hr && (
-                                        <div className="absolute -top-2 -right-2 bg-signal-yellow text-matte-black rounded-full p-1 shadow-sm">
-                                            <CheckCircle2 size={10} strokeWidth={3} />
-                                        </div>
-                                    )}
-                                </button>
-                            ))}
+                        <div className="px-1 py-4">
+                            <div className="flex justify-between text-sm font-medium text-gray-500 mb-2">
+                                <span>1h</span>
+                                <span>{duration}h</span>
+                                <span>{Math.min(24, property.max_booking_duration_hours)}h</span>
+                            </div>
+                            <Slider
+                                min={1}
+                                max={Math.min(24, property.max_booking_duration_hours)}
+                                step={1}
+                                value={duration}
+                                onValueChange={setDuration}
+                            />
                         </div>
                     </div>
 

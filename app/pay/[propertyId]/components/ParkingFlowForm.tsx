@@ -10,6 +10,7 @@ import { createParkingSession } from '@/actions/checkout'
 import { getParkingPrice } from '@/actions/parking'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Slider } from '@/components/ui/Slider'
 
 // Helper hook for hydration-safe time
 function useClientTime(durationHours: number) {
@@ -113,28 +114,19 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
                             <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-3">
                                 Select Duration
                             </label>
-                            <div className="grid grid-cols-3 gap-3">
-                                {[1, 2, 3, 4, 8, 12, 24].map((hr) => (
-                                    <button
-                                        key={hr}
-                                        onClick={() => handleDurationSelect(hr)}
-                                        disabled={hr > property.max_booking_duration_hours}
-                                        className={twMerge(
-                                            "relative py-4 rounded-lg font-bold text-lg border-2 transition-all active:scale-95",
-                                            duration === hr
-                                                ? "border-matte-black bg-matte-black text-signal-yellow shadow-md"
-                                                : "border-slate-outline bg-white text-matte-black hover:border-matte-black",
-                                            hr > property.max_booking_duration_hours && "opacity-20 cursor-not-allowed border-none bg-slate-50"
-                                        )}
-                                    >
-                                        {hr}h
-                                        {duration === hr && (
-                                            <div className="absolute -top-2 -right-2 bg-signal-yellow text-matte-black rounded-full p-1 shadow-sm">
-                                                <CheckCircle2 size={12} strokeWidth={3} />
-                                            </div>
-                                        )}
-                                    </button>
-                                ))}
+                            <div className="px-1 py-4">
+                                <div className="flex justify-between text-sm font-medium text-gray-500 mb-2">
+                                    <span>1h</span>
+                                    <span>{duration}h</span>
+                                    <span>{property.max_booking_duration_hours}h</span>
+                                </div>
+                                <Slider
+                                    min={1}
+                                    max={property.max_booking_duration_hours}
+                                    step={1}
+                                    value={duration}
+                                    onValueChange={handleDurationSelect}
+                                />
                             </div>
                         </div>
 
