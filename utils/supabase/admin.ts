@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { Database } from '@/database.types'
+import { Database } from '@/db-types'
 
 // params: supabaseUrl, supabaseServiceRoleKey
 // active: server-side only

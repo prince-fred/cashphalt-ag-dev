@@ -30,8 +30,8 @@ export const sendExpiryWarnings = inngest.createFunction(
             // Let's add the column via migration? 
             // User asked for "functionality", implicit schema change is okay.
 
-            const { data, error } = await supabase
-                .from("sessions")
+            const { data, error } = await (supabase
+                .from("sessions") as any)
                 .select("*, properties(name)")
                 .eq("status", "ACTIVE")
                 .gte("end_time_current", windowStart.toISOString())

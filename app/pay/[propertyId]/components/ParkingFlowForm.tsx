@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Database } from '@/database.types'
+import { Database } from '@/db-types'
 import { Clock, CreditCard, Car, CheckCircle2, ArrowRight, ArrowLeft, Tag } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
 import { loadStripe } from '@stripe/stripe-js'

@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import { Car, MapPin, ArrowRight, ShieldCheck } from "lucide-react";
-import { Database } from "@/database.types";
+import { Database } from "@/db-types";
 
 type Property = Database['public']['Tables']['properties']['Row'];
 

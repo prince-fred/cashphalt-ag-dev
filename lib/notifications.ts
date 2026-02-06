@@ -3,8 +3,11 @@ import { Resend } from 'resend'
 import twilio from 'twilio'
 
 // Initialize clients
-const resend = new Resend(process.env.RESEND_API_KEY)
-const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+const resend = new Resend(process.env.RESEND_API_KEY || 're_build_placeholder')
+const twilioClient = twilio(
+    process.env.TWILIO_ACCOUNT_SID || 'AC_build_placeholder',
+    process.env.TWILIO_AUTH_TOKEN || 'auth_build_placeholder'
+)
 
 const FROM_PHONE = process.env.TWILIO_PHONE_NUMBER
 const FROM_EMAIL = 'Cashphalt <receipts@cashphalt.com>' // Verify this domain in Resend!

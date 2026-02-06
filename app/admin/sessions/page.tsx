@@ -1,5 +1,5 @@
 import { getSessions } from '@/actions/sessions'
-import { Badge } from '@/components/ui/Badge' // Assuming we might want a badge, or standard div
+// Badge import removed
 import { format } from 'date-fns'
 
 export const dynamic = 'force-dynamic' // Ensure it always refetches on load

@@ -43,6 +43,8 @@ export interface Database {
                     max_booking_duration_hours: number
                     qr_enabled: boolean
                     sms_enabled: boolean
+                    address: string | null
+                    price_hourly_cents: number | null
                     created_at: string
                 }
                 Insert: {
@@ -55,6 +57,8 @@ export interface Database {
                     max_booking_duration_hours?: number
                     qr_enabled?: boolean
                     sms_enabled?: boolean
+                    address?: string | null
+                    price_hourly_cents?: number | null
                     created_at?: string
                 }
                 Update: {
@@ -67,6 +71,8 @@ export interface Database {
                     max_booking_duration_hours?: number
                     qr_enabled?: boolean
                     sms_enabled?: boolean
+                    address?: string | null
+                    price_hourly_cents?: number | null
                     created_at?: string
                 }
             }
@@ -205,6 +211,18 @@ export interface Database {
                     created_at?: string
                 }
             }
+        }
+        Views: {
+            [_ in never]: never
+        }
+        Functions: {
+            [_ in never]: never
+        }
+        Enums: {
+            [_ in never]: never
+        }
+        CompositeTypes: {
+            [_ in never]: never
         }
     }
 }

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ParkingFlowForm } from './components/ParkingFlowForm'
 import { Card } from '@/components/ui/Card'
 import { MapPin } from 'lucide-react'
-import { Database } from '@/database.types'
+import { Database } from '@/db-types'
 
 type Property = Database['public']['Tables']['properties']['Row']
 

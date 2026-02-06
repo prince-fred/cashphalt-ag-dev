@@ -13,8 +13,8 @@ export default async function ExtensionPage({ params }: PageProps) {
     const supabase = await createClient()
 
     // Fetch session details
-    const { data: session, error } = await supabase
-        .from('sessions')
+    const { data: session, error } = await (supabase
+        .from('sessions') as any)
         .select(`
             *,
             properties (

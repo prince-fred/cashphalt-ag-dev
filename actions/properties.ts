@@ -3,21 +3,22 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import QRCode from 'qrcode'
-import { Database } from '@/database.types'
+import { Database } from '@/db-types'
 
 type PropertyInsert = Database['public']['Tables']['properties']['Insert']
 type PropertyUpdate = Database['public']['Tables']['properties']['Update']
+type Property = Database['public']['Tables']['properties']['Row']
 
 export async function getProperties() {
     const supabase = await createClient()
-    const { data } = await supabase.from('properties').select('*').order('created_at', { ascending: false })
-    return data || []
+    const { data } = await (supabase.from('properties') as any).select('*').order('created_at', { ascending: false })
+    return (data || []) as Property[]
 }
 
 export async function getProperty(id: string) {
     const supabase = await createClient()
-    const { data } = await supabase.from('properties').select('*').eq('id', id).single()
-    return data
+    const { data } = await (supabase.from('properties') as any).select('*').eq('id', id).single()
+    return data as Property
 }
 
 export async function createProperty(data: any) {
@@ -35,12 +36,12 @@ export async function upsertProperty(data: PropertyInsert | PropertyUpdate) {
     // normally you'd get this from the logged in user's context.
     // Fetching the first org for now if org_id is missing.
     if (!data.organization_id) {
-        const { data: org } = await supabase.from('organizations').select('id').single()
+        const { data: org } = await (supabase.from('organizations') as any).select('id').single()
         if (org) data.organization_id = org.id
         else throw new Error("No organization found")
     }
 
-    const { error } = await supabase.from('properties').upsert(data)
+    const { error } = await (supabase.from('properties') as any).upsert(data)
 
     if (error) {
         console.error('Upsert Property Error:', error)

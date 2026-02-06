@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Database } from '@/database.types'
+import { Database } from '@/db-types'
 import { upsertProperty } from '@/actions/properties'
 import { useRouter } from 'next/navigation'
 import { Save } from 'lucide-react'

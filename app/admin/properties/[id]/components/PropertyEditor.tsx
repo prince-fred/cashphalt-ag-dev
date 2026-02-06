@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Database } from '@/database.types'
+import { Database } from '@/db-types'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { createProperty, updateProperty } from '@/actions/properties'

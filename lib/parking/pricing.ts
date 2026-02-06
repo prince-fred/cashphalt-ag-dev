@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/server'
-import { Database } from '@/database.types'
+import { Database } from '@/db-types'
 import { addMinutes, getDay, isAfter, isBefore, parse, set } from 'date-fns'
 
 type PricingRule = Database['public']['Tables']['pricing_rules']['Row']
@@ -22,12 +22,14 @@ export async function calculatePrice(
     const endTime = addMinutes(startTime, durationHours * 60)
 
     // 1. Fetch active rules for the property, ordered by priority (desc)
-    const { data: rules, error } = await supabase
-        .from('pricing_rules')
+    const { data: rulesData, error } = await (supabase
+        .from('pricing_rules') as any)
         .select('*')
         .eq('property_id', propertyId)
         .eq('is_active', true)
         .order('priority', { ascending: false })
+
+    const rules = rulesData as PricingRule[]
 
     if (error || !rules) {
         console.error('Pricing Error:', error)
@@ -82,13 +84,15 @@ export async function calculatePrice(
 
     // 3. Apply Discount
     if (discountCode) {
-        const { data: discount, error: discountError } = await supabase
-            .from('discounts')
+        const { data: discountData, error: discountError } = await (supabase
+            .from('discounts') as any)
             .select('*')
             .eq('property_id', propertyId)
             .eq('code', discountCode)
             .eq('is_active', true)
             .single()
+
+        const discount = discountData as Discount
 
         if (discount && !discountError) {
             // Check expiry

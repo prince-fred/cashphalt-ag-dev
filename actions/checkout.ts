@@ -24,8 +24,8 @@ export async function createParkingSession({ propertyId, durationHours, plate, c
     // This locks in the price and the rule used.
     const endTimeInitial = addMinutes(startTime, durationHours * 60)
 
-    const { data: session, error: sessionError } = await supabase
-        .from('sessions')
+    const { data: session, error: sessionError } = await (supabase
+        .from('sessions') as any)
         .insert({
             property_id: propertyId,
             start_time: startTime.toISOString(),
@@ -49,7 +49,7 @@ export async function createParkingSession({ propertyId, durationHours, plate, c
     // 3. Create Session Snapshot (Immutable Record)
     // We record exactly WHY it cost this much.
     if (ruleApplied) {
-        await supabase.from('session_pricing_snapshots').insert({
+        await (supabase.from('session_pricing_snapshots') as any).insert({
             session_id: session.id,
             pricing_rule_id: ruleApplied.id,
             applied_rate_cents: ruleApplied.amount_cents,

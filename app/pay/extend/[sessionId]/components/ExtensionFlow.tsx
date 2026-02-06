@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Database } from '@/database.types'
+import { Database } from '@/db-types'
 import { twMerge } from 'tailwind-merge'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'

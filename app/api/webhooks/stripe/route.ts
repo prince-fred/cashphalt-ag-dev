@@ -37,8 +37,8 @@ export async function POST(req: Request) {
                     console.log(`[Stripe] Payment Succeeded. Session: ${sessionId}, Type: ${transactionType}, Amount: ${paymentIntent.amount}`)
 
                     // 1. Log Transaction
-                    const { error: txError } = await supabase
-                        .from('session_transactions')
+                    const { error: txError } = await (supabase
+                        .from('session_transactions') as any)
                         .insert({
                             session_id: sessionId,
                             payment_intent_id: paymentIntent.id,
@@ -54,8 +54,8 @@ export async function POST(req: Request) {
                     }
 
                     // 2. Fetch Session Details for Notification & Logic
-                    const { data: sessionData, error: fetchError } = await supabase
-                        .from('sessions')
+                    const { data: sessionData, error: fetchError } = await (supabase
+                        .from('sessions') as any)
                         .select('*, properties(name)')
                         .eq('id', sessionId)
                         .single()
@@ -69,8 +69,8 @@ export async function POST(req: Request) {
                             const currentEnd = new Date(sessionData.end_time_current)
                             newEndTime = new Date(currentEnd.getTime() + addedHours * 60 * 60 * 1000).toISOString()
 
-                            const { error: updateError } = await supabase
-                                .from('sessions')
+                            const { error: updateError } = await (supabase
+                                .from('sessions') as any)
                                 .update({
                                     end_time_current: newEndTime,
                                     total_price_cents: (sessionData.total_price_cents || 0) + paymentIntent.amount
@@ -82,8 +82,8 @@ export async function POST(req: Request) {
 
                         } else {
                             // INITIAL
-                            const { error: updateError } = await supabase
-                                .from('sessions')
+                            const { error: updateError } = await (supabase
+                                .from('sessions') as any)
                                 .update({
                                     status: 'ACTIVE',
                                     payment_intent_id: paymentIntent.id

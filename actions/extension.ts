@@ -14,8 +14,8 @@ export async function extendSession({ sessionId, durationHours }: ExtendSessionP
     const supabase = await createClient()
 
     // 1. Fetch Session
-    const { data: session, error: sessionError } = await supabase
-        .from('sessions')
+    const { data: session, error: sessionError } = await (supabase
+        .from('sessions') as any)
         .select(`
             *,
             properties (

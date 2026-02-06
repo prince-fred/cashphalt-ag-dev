@@ -25,8 +25,8 @@ export async function POST(req: Request) {
 
     // 2. Find Property by Slug (which we treat as the "Code")
     // Case-insensitive search on slug
-    const { data: property, error } = await supabase
-        .from('properties')
+    const { data: property, error } = await (supabase
+        .from('properties') as any)
         .select('id, name, slug')
         .ilike('slug', body)
         .single()
