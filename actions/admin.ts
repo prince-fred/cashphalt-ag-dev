@@ -19,6 +19,7 @@ export async function getAdminStats() {
         .from('sessions')
         .select('total_price_cents')
         .neq('status', 'CREATED') // Include active/expired/completed
+        .returns<{ total_price_cents: number }[]>()
 
     const totalRevenueCents = revenueData?.reduce((sum, s) => sum + s.total_price_cents, 0) || 0
 
