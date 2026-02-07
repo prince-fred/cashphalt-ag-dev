@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google"; // Changed from Geist, Geist_Mono
 import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
 
 // Setup Inter font
 const inter = Inter({
@@ -26,6 +27,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         {children}
+        <Toaster />
       </body>
     </html>
   );

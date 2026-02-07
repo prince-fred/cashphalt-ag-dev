@@ -1,12 +1,15 @@
 import { getProperty, generateQrCode } from '@/actions/properties'
-import { PropertyEditor } from './components/PropertyEditor'
+import { getOrganizations } from '@/actions/organizations'
+import { PropertyEditor } from '../components/PropertyEditor'
 import { ArrowLeft, Download } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 
-export default async function PropertyDetailPage({ params }: { params: { id: string } }) {
-    const isNew = params.id === 'new'
-    const property = !isNew ? await getProperty(params.id) : undefined
+export default async function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params
+    const isNew = id === 'new'
+    const property = !isNew ? await getProperty(id) : undefined
+    const organizations = await getOrganizations()
 
     // Generate QR for preview if property exists
     const publicUrl = property ? `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/pay/${property.id}` : ''
@@ -24,7 +27,7 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
             <div className="flex items-start gap-8 flex-col lg:flex-row">
                 <div className="flex-1 w-full">
                     <h1 className="text-2xl font-bold text-slate-900 mb-6">{isNew ? 'New Property' : 'Edit Property'}</h1>
-                    <PropertyEditor property={property} />
+                    <PropertyEditor property={property} organizations={organizations} />
                 </div>
 
                 {!isNew && qrDataUrl && (

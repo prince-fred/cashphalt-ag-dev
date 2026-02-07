@@ -5,15 +5,18 @@ import { Database } from '@/db-types'
 import { upsertProperty } from '@/actions/properties'
 import { useRouter } from 'next/navigation'
 import { Save } from 'lucide-react'
+import { toast } from 'sonner'
 
 type Property = Database['public']['Tables']['properties']['Row']
+type Organization = Database['public']['Tables']['organizations']['Row']
 
-export function PropertyEditor({ property }: { property?: Property }) {
+export function PropertyEditor({ property, organizations = [] }: { property?: Property; organizations?: Organization[] }) {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState<Partial<Property>>(property || {
         name: '',
         slug: '',
+        organization_id: organizations.length > 0 ? organizations[0].id : '', // Default to first available org
         max_booking_duration_hours: 24,
         allocation_mode: 'ZONE',
         timezone: 'UTC',
@@ -36,8 +39,8 @@ export function PropertyEditor({ property }: { property?: Property }) {
             await upsertProperty(formData as any)
             router.push('/admin/properties')
             router.refresh()
-        } catch (err) {
-            alert('Error saving property')
+        } catch (err: any) {
+            toast.error(err.message || 'Error saving property')
         } finally {
             setLoading(false)
         }
@@ -46,6 +49,29 @@ export function PropertyEditor({ property }: { property?: Property }) {
     return (
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Organization</label>
+                    <select
+                        name="organization_id"
+                        value={formData.organization_id}
+                        onChange={handleChange}
+                        required
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        {organizations.length === 0 && <option value="">No organizations found</option>}
+                        {organizations.map(org => (
+                            <option key={org.id} value={org.id}>
+                                {org.name}
+                            </option>
+                        ))}
+                    </select>
+                    {organizations.length === 0 && (
+                        <p className="text-xs text-red-500 mt-1">
+                            No organizations available. Please contact support.
+                        </p>
+                    )}
+                </div>
+
                 <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Property Name</label>
                     <input
@@ -108,8 +134,8 @@ export function PropertyEditor({ property }: { property?: Property }) {
             <div className="flex justify-end pt-4 border-t border-slate-100">
                 <button
                     type="submit"
-                    disabled={loading}
-                    className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                    disabled={loading || organizations.length === 0}
+                    className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <Save size={18} />
                     {loading ? 'Saving...' : 'Save Property'}
