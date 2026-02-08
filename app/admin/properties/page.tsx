@@ -10,7 +10,7 @@ export default async function AdminPropertiesPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Properties</h1>
-                    <p className="text-slate-500 text-sm mt-1">Manage parking locations and settings.</p>
+                    <p className="text-slate-600 text-sm mt-1">Manage parking locations and settings.</p>
                 </div>
                 <Link
                     href="/admin/properties/new"
@@ -36,7 +36,7 @@ export default async function AdminPropertiesPage() {
                                     </div>
                                     <div>
                                         <h3 className="font-semibold text-slate-900">{p.name}</h3>
-                                        <p className="text-sm text-slate-500 font-mono mt-0.5">/{p.slug}</p>
+                                        <p className="text-sm text-slate-600 font-mono mt-0.5">/{p.slug}</p>
                                         <div className="flex gap-2 mt-2">
                                             <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-medium">
                                                 {p.allocation_mode}
@@ -52,14 +52,14 @@ export default async function AdminPropertiesPage() {
                                     <Link
                                         href={`/pay/${p.id}`} // Helper to view public page easily
                                         target="_blank"
-                                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                        className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                                         title="View Public Page"
                                     >
                                         <span className="text-xs font-bold mr-1">View</span>
                                     </Link>
                                     <Link
                                         href={`/admin/properties/${p.id}`}
-                                        className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium hover:bg-white hover:border-slate-300 transition-colors"
+                                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-400 transition-all shadow-sm"
                                     >
                                         <SettingsIcon size={16} />
                                         Manage

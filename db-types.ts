@@ -182,6 +182,26 @@ export interface Database {
                     created_at?: string
                 }
             }
+            parking_units: {
+                Row: {
+                    id: string
+                    property_id: string
+                    name: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    property_id: string
+                    name: string
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    property_id?: string
+                    name?: string
+                    created_at?: string
+                }
+            }
             session_transactions: {
                 Row: {
                     id: string

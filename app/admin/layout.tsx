@@ -14,7 +14,7 @@ export default function AdminLayout({
                     <h1 className="text-xl font-bold tracking-tight text-white">
                         Cashphalt <span className="text-signal-yellow">Admin</span>
                     </h1>
-                    <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest">Production v1.0</p>
+                    <p className="text-xs text-gray-400 mt-1 uppercase tracking-widest">Production v1.0</p>
                 </div>
 
                 <nav className="flex-1 p-4 space-y-2">
@@ -49,7 +49,7 @@ export default function AdminLayout({
                 </nav>
 
                 <div className="p-4 border-t border-white/10">
-                    <button className="flex items-center gap-3 px-4 py-3 text-error-red hover:bg-error-red/10 w-full rounded-lg transition-colors font-medium">
+                    <button className="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-400/10 w-full rounded-lg transition-colors font-medium">
                         <LogOut size={20} />
                         Sign Out
                     </button>

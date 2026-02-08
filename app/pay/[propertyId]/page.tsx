@@ -1,4 +1,5 @@
 import { getPropertyBySlugOrId } from '@/actions/parking'
+import { getParkingUnit } from '@/actions/properties'
 import { notFound } from 'next/navigation'
 import { ParkingFlowForm } from './components/ParkingFlowForm'
 import { Card } from '@/components/ui/Card'
@@ -7,14 +8,24 @@ import { Database } from '@/db-types'
 
 type Property = Database['public']['Tables']['properties']['Row']
 
+
 interface PageProps {
     params: Promise<{ propertyId: string }>
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-export default async function PublicParkingPage({ params }: PageProps) {
+type ParkingUnit = {
+    id: string
+    property_id: string
+    name: string
+}
+
+export default async function PublicParkingPage({ params, searchParams }: PageProps) {
     const { propertyId } = await params
 
     const property = await getPropertyBySlugOrId(propertyId) as Property | null
+    const { unit: unitId } = (await searchParams) || {}
+    const unit = unitId && typeof unitId === 'string' ? await getParkingUnit(unitId) as ParkingUnit | null : null
 
     if (!property) {
         notFound()
@@ -31,6 +42,11 @@ export default async function PublicParkingPage({ params }: PageProps) {
                             <span>Official Zone</span>
                         </div>
                         <h1 className="text-2xl font-bold tracking-tight mb-1">{property.name}</h1>
+                        {unit && (
+                            <div className="inline-block bg-signal-yellow text-matte-black text-sm font-extrabold px-3 py-1 rounded mb-3 shadow-sm uppercase tracking-wider border border-matte-black/10">
+                                {unit.name}
+                            </div>
+                        )}
                         <p className="text-gray-400 text-sm">Pay for Parking</p>
                     </div>
                     {/* Background Texture */}
@@ -39,7 +55,7 @@ export default async function PublicParkingPage({ params }: PageProps) {
 
                 {/* Main Card */}
                 <Card className="rounded-t-none border-t-0 shadow-xl">
-                    <ParkingFlowForm property={property} />
+                    <ParkingFlowForm property={property} unit={unit} />
                 </Card>
 
                 {/* Footer */}

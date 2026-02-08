@@ -30,3 +30,30 @@ export async function getSessions() {
     // Flatten/map data if necessary, or return as is
     return (data || []) as SessionWithProperty[]
 }
+
+export async function getSessionByPaymentIntent(paymentIntentId: string) {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+        .from('sessions')
+        .select(`
+            *,
+            properties (
+                name,
+                slug,
+                allocation_mode
+            ),
+            parking_units (
+                name
+            )
+        `)
+        .eq('payment_intent_id', paymentIntentId)
+        .single()
+
+    if (error) {
+        console.error('Error fetching session:', error)
+        return null
+    }
+
+    return data
+}

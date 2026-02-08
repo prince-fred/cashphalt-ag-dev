@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Database } from '@/db-types'
-import { Clock, CreditCard, Car, CheckCircle2, ArrowRight, ArrowLeft, Tag } from 'lucide-react'
+import { Clock, CreditCard, Car, CheckCircle2, ArrowRight, ArrowLeft, Tag, MapPin } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
@@ -33,11 +33,13 @@ const stripePromise = loadStripe(publishableKey!);
 
 type Property = Database['public']['Tables']['properties']['Row']
 
+
 interface ParkingFlowFormProps {
     property: Property
+    unit?: { id: string, name: string } | null
 }
 
-export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
+export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
     const [step, setStep] = useState<1 | 2 | 3>(1)
     const [duration, setDuration] = useState(1) // Hours
     const [plate, setPlate] = useState('')
@@ -77,7 +79,8 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
                 durationHours: duration,
                 plate,
                 customerEmail,
-                discountCode: appliedDiscount?.code
+                discountCode: appliedDiscount?.code,
+                unitId: unit?.id
             })
 
             setPriceCents(result.amountCents)
@@ -114,8 +117,19 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
                             <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-3">
                                 Select Duration
                             </label>
+                            {unit && (
+                                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
+                                    <div className="bg-blue-100 p-2 rounded-md text-blue-700">
+                                        <MapPin size={20} />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-0.5">Current Location</p>
+                                        <p className="text-lg font-bold text-blue-900">{unit.name}</p>
+                                    </div>
+                                </div>
+                            )}
                             <div className="px-1 py-4">
-                                <div className="flex justify-between text-sm font-medium text-gray-500 mb-2">
+                                <div className="flex justify-between text-sm font-medium text-gray-600 mb-2">
                                     <span>1h</span>
                                     <span>{duration}h</span>
                                     <span>{property.max_booking_duration_hours}h</span>
@@ -142,7 +156,7 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
                                 </div>
                             </div>
                             <div className="text-right">
-                                <p className="text-xs font-bold text-gray-500 uppercase">Total</p>
+                                <p className="text-xs font-bold text-gray-600 uppercase">Total</p>
                                 {appliedDiscount ? (
                                     <div>
                                         <p className="text-sm text-gray-400 line-through decoration-red-500">
@@ -163,7 +177,7 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
                         {/* Promo Code Input */}
                         <div className="flex gap-2 items-center">
                             <div className="relative flex-1">
-                                <Tag className="absolute left-3 top-3 text-gray-400" size={16} />
+                                <Tag className="absolute left-3 top-3 text-gray-500" size={16} />
                                 <Input
                                     placeholder="Promocode"
                                     className="pl-9 h-10 text-sm uppercase text-matte-black font-medium"
@@ -206,13 +220,24 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
 
                 {step === 2 && (
                     <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-6">
+                        {unit && (
+                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
+                                <div className="bg-blue-100 p-1.5 rounded-md text-blue-700">
+                                    <MapPin size={16} />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-0.5">Parking at</p>
+                                    <p className="text-sm font-bold text-blue-900">{unit.name}</p>
+                                </div>
+                            </div>
+                        )}
                         <div className="space-y-5">
                             <div>
                                 <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-2">
                                     License Plate
                                 </label>
                                 <div className="relative">
-                                    <Car className="absolute left-4 top-4 text-gray-400" size={20} />
+                                    <Car className="absolute left-4 top-4 text-gray-500" size={20} />
                                     <Input
                                         type="text"
                                         placeholder="ABC 123"
@@ -225,7 +250,7 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-2">
-                                    Email Receipt <span className="text-gray-400 normal-case font-normal">(Optional)</span>
+                                    Email Receipt <span className="text-gray-500 normal-case font-normal">(Optional)</span>
                                 </label>
                                 <Input
                                     type="email"
@@ -264,11 +289,17 @@ export function ParkingFlowForm({ property }: ParkingFlowFormProps) {
                     <div className="animate-in fade-in slide-in-from-right-4 duration-300">
                         <div className="bg-concrete-grey rounded-xl p-5 mb-6 border border-slate-outline">
                             <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm text-gray-500 font-medium">PLATE</span>
+                                <span className="text-sm text-gray-700 font-medium">PLATE</span>
                                 <span className="font-mono font-bold text-lg bg-white px-2 py-0.5 rounded border border-slate-outline">{plate}</span>
                             </div>
+                            {unit && (
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-sm text-gray-700 font-medium">LOCATION</span>
+                                    <span className="font-bold text-matte-black">{unit.name}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between items-center">
-                                <span className="text-sm text-gray-500 font-medium">DURATION</span>
+                                <span className="text-sm text-gray-700 font-medium">DURATION</span>
                                 <span className="font-bold">{duration} Hour{duration > 1 ? 's' : ''}</span>
                             </div>
                             <div className="mt-4 pt-3 border-t border-slate-outline flex justify-between items-center">

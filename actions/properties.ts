@@ -77,6 +77,7 @@ export async function upsertProperty(data: PropertyInsert | PropertyUpdate) {
     return { success: true, id: inserted.id }
 }
 
+
 export async function generateQrCode(url: string) {
     try {
         const dataUrl = await QRCode.toDataURL(url, { width: 400, margin: 2 })
@@ -85,4 +86,58 @@ export async function generateQrCode(url: string) {
         console.error(err)
         return null
     }
+}
+
+export async function getParkingUnits(propertyId: string) {
+    const supabase = await createClient()
+    const { data } = await (supabase.from('parking_units') as any)
+        .select('*')
+        .eq('property_id', propertyId)
+        .order('name', { ascending: true })
+
+    return (data || []) as { id: string, property_id: string, name: string }[]
+}
+
+export async function createParkingUnit(propertyId: string, name: string) {
+    // Service role for now as per upsertProperty pattern
+    const adminSupabase = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { data, error } = await (adminSupabase.from('parking_units') as any)
+        .insert({ property_id: propertyId, name })
+        .select()
+        .single()
+
+    if (error) throw new Error(error.message)
+    revalidatePath(`/admin/properties/${propertyId}`)
+    return data
+}
+
+export async function deleteParkingUnit(unitId: string) {
+    const adminSupabase = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    // Get property_id for revalidation before deleting (optional but good practice)
+    // For simplicity, just delete and we might need to rely on client refresh or return propertyId
+
+    const { error } = await (adminSupabase.from('parking_units') as any)
+        .delete()
+        .eq('id', unitId)
+
+    if (error) throw new Error(error.message)
+    return { success: true }
+}
+
+export async function getParkingUnit(unitId: string) {
+    const supabase = await createClient()
+    const { data } = await (supabase.from('parking_units') as any)
+        .select('*')
+        .eq('id', unitId)
+        .single()
+
+    return data as { id: string, property_id: string, name: string } | null
 }

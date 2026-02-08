@@ -14,7 +14,7 @@ export default async function AdminSessionsPage() {
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
+                        <thead className="bg-slate-50 text-slate-700 font-medium border-b border-slate-200">
                             <tr>
                                 <th className="px-6 py-4">Status</th>
                                 <th className="px-6 py-4">Plate</th>
@@ -50,14 +50,14 @@ export default async function AdminSessionsPage() {
                                                 but simple display relies on implementation.
                                                 Let's just show raw start/end diff or nothing for now
                                             */}
-                                            <span className="text-xs text-slate-400">
+                                            <span className="text-xs text-slate-500">
                                                 {format(new Date(session.end_time_initial), 'h:mm a')}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 font-medium text-slate-900">
                                             ${(session.total_price_cents / 100).toFixed(2)}
                                         </td>
-                                        <td className="px-6 py-4 text-slate-500">
+                                        <td className="px-6 py-4 text-slate-600">
                                             {format(new Date(session.created_at), 'MMM d, h:mm a')}
                                         </td>
                                     </tr>

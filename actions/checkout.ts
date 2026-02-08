@@ -11,9 +11,10 @@ interface CreateSessionParams {
     plate: string
     customerEmail?: string
     discountCode?: string
+    unitId?: string
 }
 
-export async function createParkingSession({ propertyId, durationHours, plate, customerEmail, discountCode }: CreateSessionParams) {
+export async function createParkingSession({ propertyId, durationHours, plate, customerEmail, discountCode, unitId }: CreateSessionParams) {
     const supabase = await createClient()
 
     // 1. Calculate Price Authoritatively
@@ -36,7 +37,8 @@ export async function createParkingSession({ propertyId, durationHours, plate, c
             vehicle_plate: plate,
             customer_email: customerEmail,
             discount_id: discountApplied?.id || null,
-            discount_amount_cents: discountAmountCents
+            discount_amount_cents: discountAmountCents,
+            spot_id: unitId || null
         })
         .select()
         .single()

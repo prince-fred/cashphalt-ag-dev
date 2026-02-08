@@ -43,7 +43,7 @@ export default async function Home() {
           <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed border-slate-outline shadow-sm">
             <Car className="mx-auto h-16 w-16 text-gray-300 mb-4" />
             <h3 className="text-xl font-bold text-matte-black mb-2">No Properties Found</h3>
-            <p className="text-gray-500 max-w-md mx-auto">
+            <p className="text-gray-600 max-w-md mx-auto">
               Please run the seed script to initialize the parking zones.
             </p>
           </div>
@@ -53,7 +53,7 @@ export default async function Home() {
               <Link
                 href={`/pay/${property.slug}`}
                 key={property.id}
-                className="group bg-white rounded-xl border border-slate-outline p-6 shadow-sm hover:shadow-lg hover:border-matte-black transition-all duration-300 flex flex-col justify-between h-full relative overflow-hidden"
+                className="group bg-white rounded-xl border border-slate-300 p-6 shadow-sm hover:shadow-lg hover:border-matte-black transition-all duration-300 flex flex-col justify-between h-full relative overflow-hidden"
               >
                 <div className="absolute top-0 left-0 w-2 h-full bg-signal-yellow opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
@@ -72,7 +72,7 @@ export default async function Home() {
                   <h3 className="text-2xl font-bold text-matte-black mb-2 group-hover:underline decoration-signal-yellow decoration-4 underline-offset-4">
                     {property.name}
                   </h3>
-                  <div className="flex items-center gap-2 text-sm text-gray-600 font-medium">
+                  <div className="flex items-center gap-2 text-sm text-gray-700 font-medium">
                     <span className="inline-block w-2 h-2 bg-success-green rounded-full animate-pulse"></span>
                     Open 24/7 • Max {property.max_booking_duration_hours}h
                   </div>
@@ -88,7 +88,7 @@ export default async function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-outline py-12 text-center text-gray-500 text-sm bg-white">
+      <footer className="border-t border-slate-outline py-12 text-center text-gray-600 text-sm bg-white">
         <p className="font-medium">© {new Date().getFullYear()} Cashphalt. Infrastructure Optimized.</p>
       </footer>
     </main>
