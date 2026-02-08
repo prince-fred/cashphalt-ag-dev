@@ -14,31 +14,18 @@ type ParkingUnit = { id: string, property_id: string, name: string }
 
 interface PropertyEditorProps {
     property?: Property
-    organizationId: string
-    onSave: () => void
-    onCancel: () => void
+    organizations: Organization[]
+    units?: ParkingUnit[]
 }
 
-interface FormData {
-    name: string
-    slug: string
-    timezone: string
-    allocation_mode: 'SPOT' | 'ZONE'
-    max_booking_duration_hours: number
-    qr_enabled: boolean
-    sms_enabled: boolean
-    price_hourly_cents: number
-    logo_url?: string | null
-}
-
-export function PropertyEditor({ property, organizationId, onSave, onCancel }: PropertyEditorProps) {
+export function PropertyEditor({ property, organizations, units = [] }: PropertyEditorProps) {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState<Partial<Property>>({
         ...property,
         name: property?.name || '',
         slug: property?.slug || '',
-        organization_id: property?.organization_id || organizationId,
+        organization_id: property?.organization_id || '',
         max_booking_duration_hours: property?.max_booking_duration_hours || 24,
         allocation_mode: property?.allocation_mode || 'ZONE',
         timezone: property?.timezone || 'America/New_York',
@@ -46,31 +33,8 @@ export function PropertyEditor({ property, organizationId, onSave, onCancel }: P
         sms_enabled: property?.sms_enabled ?? true,
         price_hourly_cents: property?.price_hourly_cents || 500,
         logo_url: property?.logo_url || '',
+        address: property?.address || '',
     })
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value, type } = e.target
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-        }))
-    }
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setLoading(true)
-        try {
-            await upsertProperty({
-                ...formData,
-                organization_id: formData.organization_id || organizationId
-            } as any)
-            onSave()
-        } catch (err: any) {
-            toast.error(err.message || 'Error saving property')
-        } finally {
-            setLoading(false)
-        }
-    }
 
     const [newUnitName, setNewUnitName] = useState('')
     const [isAddingUnit, setIsAddingUnit] = useState(false)
