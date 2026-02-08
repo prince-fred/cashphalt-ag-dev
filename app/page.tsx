@@ -21,7 +21,7 @@ export default async function Home() {
       <header className="fixed top-0 w-full z-50 bg-matte-black/90 backdrop-blur-md border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <div className="relative w-8 h-8">
+            <div className="relative w-8 h-8 bg-white rounded p-1">
               <Image
                 src="/cashphalt-logo.svg"
                 alt="Cashphalt Logo"

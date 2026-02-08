@@ -13,7 +13,7 @@ export default function AdminLayout({
             <aside className="w-64 bg-matte-black text-white hidden md:flex flex-col border-r border-white/5">
                 <div className="p-6 border-b border-white/10">
                     <div className="flex items-center gap-2 mb-2">
-                        <div className="relative w-6 h-6">
+                        <div className="relative w-8 h-8 bg-white rounded p-1">
                             <Image
                                 src="/cashphalt-logo.svg"
                                 alt="Cashphalt Logo"
@@ -78,7 +78,7 @@ export default function AdminLayout({
             <main className="flex-1 overflow-auto">
                 <header className="bg-white border-b border-slate-outline p-4 md:hidden flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <div className="relative w-6 h-6">
+                        <div className="relative w-8 h-8 bg-white rounded p-1 border border-slate-200">
                             <Image
                                 src="/cashphalt-logo.svg"
                                 alt="Cashphalt Logo"

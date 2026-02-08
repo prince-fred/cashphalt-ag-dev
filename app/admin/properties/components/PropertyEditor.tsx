@@ -25,7 +25,7 @@ export function PropertyEditor({ property, organizations, units = [] }: Property
         ...property,
         name: property?.name || '',
         slug: property?.slug || '',
-        organization_id: property?.organization_id || '',
+        organization_id: property?.organization_id || (organizations.length > 0 ? organizations[0].id : ''),
         max_booking_duration_hours: property?.max_booking_duration_hours || 24,
         allocation_mode: property?.allocation_mode || 'ZONE',
         timezone: property?.timezone || 'America/New_York',
