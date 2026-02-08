@@ -12,27 +12,65 @@ type Property = Database['public']['Tables']['properties']['Row']
 type Organization = Database['public']['Tables']['organizations']['Row']
 type ParkingUnit = { id: string, property_id: string, name: string }
 
-export function PropertyEditor({
-    property,
-    organizations = [],
-    units = []
-}: {
-    property?: Property;
-    organizations?: Organization[];
-    units?: ParkingUnit[]
-}) {
+interface PropertyEditorProps {
+    property?: Property
+    organizationId: string
+    onSave: () => void
+    onCancel: () => void
+}
+
+interface FormData {
+    name: string
+    slug: string
+    timezone: string
+    allocation_mode: 'SPOT' | 'ZONE'
+    max_booking_duration_hours: number
+    qr_enabled: boolean
+    sms_enabled: boolean
+    price_hourly_cents: number
+    logo_url?: string | null
+}
+
+export function PropertyEditor({ property, organizationId, onSave, onCancel }: PropertyEditorProps) {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
-    const [formData, setFormData] = useState<Partial<Property>>(property || {
-        name: '',
-        slug: '',
-        organization_id: organizations.length > 0 ? organizations[0].id : '', // Default to first available org
-        max_booking_duration_hours: 24,
-        allocation_mode: 'ZONE',
-        timezone: 'UTC',
-        qr_enabled: true,
-        sms_enabled: true
+    const [formData, setFormData] = useState<Partial<Property>>({
+        ...property,
+        name: property?.name || '',
+        slug: property?.slug || '',
+        organization_id: property?.organization_id || organizationId,
+        max_booking_duration_hours: property?.max_booking_duration_hours || 24,
+        allocation_mode: property?.allocation_mode || 'ZONE',
+        timezone: property?.timezone || 'America/New_York',
+        qr_enabled: property?.qr_enabled ?? true,
+        sms_enabled: property?.sms_enabled ?? true,
+        price_hourly_cents: property?.price_hourly_cents || 500,
+        logo_url: property?.logo_url || '',
     })
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value, type } = e.target
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+        }))
+    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setLoading(true)
+        try {
+            await upsertProperty({
+                ...formData,
+                organization_id: formData.organization_id || organizationId
+            } as any)
+            onSave()
+        } catch (err: any) {
+            toast.error(err.message || 'Error saving property')
+        } finally {
+            setLoading(false)
+        }
+    }
 
     const [newUnitName, setNewUnitName] = useState('')
     const [isAddingUnit, setIsAddingUnit] = useState(false)
@@ -113,24 +151,46 @@ export function PropertyEditor({
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Property Name</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Property Name
+                        </label>
                         <input
+                            type="text"
                             name="name"
                             value={formData.name}
-                            onChange={handleChange}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             required
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Slug (URL Path)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            URL Slug
+                        </label>
                         <input
+                            type="text"
                             name="slug"
                             value={formData.slug}
-                            onChange={handleChange}
+                            onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             required
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
                         />
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Logo URL (Optional)
+                        </label>
+                        <input
+                            type="url"
+                            name="logo_url"
+                            value={formData.logo_url || ''}
+                            onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
+                            placeholder="https://example.com/logo.png"
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                            Enter a direct link to your logo image. This will be displayed on the payment page.
+                        </p>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Max Duration (Hours)</label>

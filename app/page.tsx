@@ -1,19 +1,47 @@
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
+import Image from "next/image";
 import { Car, MapPin, ArrowRight, ShieldCheck } from "lucide-react";
 import { Database } from "@/db-types";
+import { PropertyCard } from "@/components/PropertyCard";
 
-type Property = Database['public']['Tables']['properties']['Row'];
+type Property = Database['public']['Tables']['properties']['Row'] & {
+  parking_units: { id: string, name: string }[]
+};
 
 export default async function Home() {
   const supabase = await createClient();
-  const { data } = await supabase.from("properties").select("*");
+  const { data } = await supabase.from("properties").select("*, parking_units(id, name)");
+  // @ts-ignore
   const properties = data as Property[] | null;
 
   return (
-    <main className="min-h-screen bg-concrete-grey font-sans text-matte-black">
+    <main className="min-h-screen bg-concrete-grey font-sans text-matte-black flex flex-col">
+      {/* Navigation */}
+      <header className="fixed top-0 w-full z-50 bg-matte-black/90 backdrop-blur-md border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="relative w-8 h-8">
+              <Image
+                src="/cashphalt-logo.svg"
+                alt="Cashphalt Logo"
+                fill
+                className="object-contain"
+              />
+            </div>
+            <span className="text-xl font-bold text-white tracking-tight">Cashphalt</span>
+          </Link>
+          <Link
+            href="/admin"
+            className="text-sm font-bold text-gray-300 hover:text-signal-yellow transition-colors"
+          >
+            LOG IN
+          </Link>
+        </div>
+      </header>
+
       {/* Hero Section */}
-      <section className="bg-matte-black text-white py-24 px-6 relative overflow-hidden">
+      <section className="bg-matte-black text-white pt-32 pb-24 px-6 relative overflow-hidden">
         <div className="max-w-5xl mx-auto text-center space-y-8 relative z-10">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 text-signal-yellow text-sm font-bold border border-signal-yellow/20 tracking-wide uppercase">
             <ShieldCheck size={16} />
@@ -31,11 +59,11 @@ export default async function Home() {
       </section>
 
       {/* Properties List */}
-      <section className="max-w-5xl mx-auto px-6 py-16">
+      <section className="max-w-5xl mx-auto px-6 py-16 flex-1 w-full">
         <div className="flex items-center justify-between mb-10">
           <h2 className="text-3xl font-bold flex items-center gap-3">
             <MapPin className="text-matte-black fill-signal-yellow" size={32} />
-            AVAILABLE ZONES
+            AVAILABLE PROPERTIES
           </h2>
         </div>
 
@@ -50,48 +78,29 @@ export default async function Home() {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {properties.map((property) => (
-              <Link
-                href={`/pay/${property.slug}`}
+              <PropertyCard
                 key={property.id}
-                className="group bg-white rounded-xl border border-slate-300 p-6 shadow-sm hover:shadow-lg hover:border-matte-black transition-all duration-300 flex flex-col justify-between h-full relative overflow-hidden"
-              >
-                <div className="absolute top-0 left-0 w-2 h-full bg-signal-yellow opacity-0 group-hover:opacity-100 transition-opacity"></div>
-
-                <div className="pl-2">
-                  <div className="flex items-start justify-between mb-5">
-                    <div className="bg-concrete-grey text-matte-black p-3 rounded-lg group-hover:bg-signal-yellow transition-colors">
-                      <Car size={24} strokeWidth={2.5} />
-                    </div>
-                    {property.allocation_mode === 'ZONE' && (
-                      <span className="bg-matte-black text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">
-                        Zone
-                      </span>
-                    )}
-                  </div>
-
-                  <h3 className="text-2xl font-bold text-matte-black mb-2 group-hover:underline decoration-signal-yellow decoration-4 underline-offset-4">
-                    {property.name}
-                  </h3>
-                  <div className="flex items-center gap-2 text-sm text-gray-700 font-medium">
-                    <span className="inline-block w-2 h-2 bg-success-green rounded-full animate-pulse"></span>
-                    Open 24/7 • Max {property.max_booking_duration_hours}h
-                  </div>
-                </div>
-
-                <div className="mt-8 pl-2 flex items-center text-sm font-bold text-matte-black gap-2 group-hover:gap-3 transition-all">
-                  START SESSION <ArrowRight size={18} className="text-signal-yellow" />
-                </div>
-              </Link>
+                property={property}
+                units={property.parking_units || []}
+              />
             ))}
           </div>
+
         )}
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-outline py-12 text-center text-gray-600 text-sm bg-white">
-        <p className="font-medium">© {new Date().getFullYear()} Cashphalt. Infrastructure Optimized.</p>
+      <footer className="border-t border-slate-outline py-12 text-center bg-white">
+        <div className="inline-block relative w-10 h-10 mb-4 opacity-20 grayscale">
+          <Image
+            src="/cashphalt-logo.svg"
+            alt="Cashphalt Logo"
+            fill
+            className="object-contain"
+          />
+        </div>
+        <p className="font-medium text-gray-400 text-sm">© {new Date().getFullYear()} Cashphalt. Infrastructure Optimized.</p>
       </footer>
     </main>
   );
 }
-

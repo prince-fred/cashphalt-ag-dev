@@ -45,6 +45,7 @@ export interface Database {
                     sms_enabled: boolean
                     address: string | null
                     price_hourly_cents: number | null
+                    logo_url: string | null
                     created_at: string
                 }
                 Insert: {
@@ -59,6 +60,7 @@ export interface Database {
                     sms_enabled?: boolean
                     address?: string | null
                     price_hourly_cents?: number | null
+                    logo_url?: string | null
                     created_at?: string
                 }
                 Update: {

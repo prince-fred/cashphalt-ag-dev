@@ -5,6 +5,7 @@ import { ParkingFlowForm } from './components/ParkingFlowForm'
 import { Card } from '@/components/ui/Card'
 import { MapPin } from 'lucide-react'
 import { Database } from '@/db-types'
+import Image from 'next/image'
 
 type Property = Database['public']['Tables']['properties']['Row']
 
@@ -37,10 +38,21 @@ export default async function PublicParkingPage({ params, searchParams }: PagePr
                 {/* Header Section */}
                 <div className="bg-matte-black text-white p-8 rounded-t-2xl text-center relative overflow-hidden border-b-4 border-signal-yellow">
                     <div className="relative z-10">
-                        <div className="flex items-center justify-center gap-2 text-signal-yellow mb-2 font-bold uppercase tracking-wider text-xs">
-                            <MapPin size={14} />
-                            <span>Official Zone</span>
-                        </div>
+                        {property.logo_url ? (
+                            <div className="mb-4 relative h-16 w-full max-w-[200px] mx-auto">
+                                <Image
+                                    src={property.logo_url}
+                                    alt={`${property.name} Logo`}
+                                    fill
+                                    className="object-contain"
+                                />
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center gap-2 text-signal-yellow mb-2 font-bold uppercase tracking-wider text-xs">
+                                <MapPin size={14} />
+                                <span>Official Zone</span>
+                            </div>
+                        )}
                         <h1 className="text-2xl font-bold tracking-tight mb-1">{property.name}</h1>
                         {unit && (
                             <div className="inline-block bg-signal-yellow text-matte-black text-sm font-extrabold px-3 py-1 rounded mb-3 shadow-sm uppercase tracking-wider border border-matte-black/10">
