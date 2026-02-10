@@ -3,10 +3,12 @@
 import { useState } from 'react'
 import { Database } from '@/db-types'
 import { upsertProperty, createParkingUnit, deleteParkingUnit } from '@/actions/properties'
+import { uploadPropertyLogo } from '@/actions/upload'
 import { useRouter } from 'next/navigation'
-import { Save, Plus, Trash2, QrCode, Download, ExternalLink } from 'lucide-react'
+import { Save, Plus, Trash2, QrCode, Download, ExternalLink, Upload, ImageIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import Image from 'next/image'
 
 type Property = Database['public']['Tables']['properties']['Row']
 type Organization = Database['public']['Tables']['organizations']['Row']
@@ -21,6 +23,7 @@ interface PropertyEditorProps {
 export function PropertyEditor({ property, organizations, units = [] }: PropertyEditorProps) {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
+    const [uploading, setUploading] = useState(false)
     const [formData, setFormData] = useState<Partial<Property>>({
         ...property,
         name: property?.name || '',
@@ -35,6 +38,31 @@ export function PropertyEditor({ property, organizations, units = [] }: Property
         logo_url: property?.logo_url || '',
         address: property?.address || '',
     })
+
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return
+
+        const file = e.target.files[0]
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error('File size must be less than 2MB')
+            return
+        }
+
+        const formData = new FormData()
+        formData.append('file', file)
+
+        setUploading(true)
+        try {
+            const publicUrl = await uploadPropertyLogo(formData)
+            setFormData(prev => ({ ...prev, logo_url: publicUrl }))
+            toast.success('Logo uploaded successfully')
+        } catch (error) {
+            console.error(error)
+            toast.error('Failed to upload logo')
+        } finally {
+            setUploading(false)
+        }
+    }
 
     const [newUnitName, setNewUnitName] = useState('')
     const [isAddingUnit, setIsAddingUnit] = useState(false)
@@ -142,19 +170,54 @@ export function PropertyEditor({ property, organizations, units = [] }: Property
                     </div>
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Logo URL (Optional)
+                            Property Logo
                         </label>
-                        <input
-                            type="url"
-                            name="logo_url"
-                            value={formData.logo_url || ''}
-                            onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
-                            placeholder="https://example.com/logo.png"
-                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                            Enter a direct link to your logo image. This will be displayed on the payment page.
-                        </p>
+                        <div className="flex items-start gap-4">
+                            {formData.logo_url ? (
+                                <div className="relative group">
+                                    <div className="w-24 h-24 relative rounded-lg border border-slate-200 overflow-hidden bg-slate-50">
+                                        <Image
+                                            src={formData.logo_url}
+                                            alt="Property Logo"
+                                            fill
+                                            className="object-contain p-2"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, logo_url: '' }))}
+                                        className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                        title="Remove Logo"
+                                    >
+                                        <Trash2 size={12} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="w-24 h-24 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
+                                    <ImageIcon size={24} className="mb-1" />
+                                    <span className="text-xs">No Logo</span>
+                                </div>
+                            )}
+
+                            <div className="flex-1">
+                                <label className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 cursor-pointer transition-colors shadow-sm">
+                                    <Upload size={16} />
+                                    {uploading ? 'Uploading...' : 'Upload New Logo'}
+                                    <input
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/png, image/jpeg, image/svg+xml"
+                                        onChange={handleLogoUpload}
+                                        disabled={uploading}
+                                    />
+                                </label>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Optimized for PNG, JPG or SVG (max 2MB).
+                                    <br />
+                                    This logo will be displayed on the payment page for this property.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Max Duration (Hours)</label>

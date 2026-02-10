@@ -65,7 +65,7 @@ export async function upsertProperty(data: PropertyInsert | PropertyUpdate) {
 
     if (error) {
         console.error('Upsert Property Error:', error)
-        throw new Error('Failed to save property')
+        throw new Error(`Failed to save property: ${error.message}`)
     }
 
     if (!inserted) {
