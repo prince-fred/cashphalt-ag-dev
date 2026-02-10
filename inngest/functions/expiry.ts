@@ -36,7 +36,7 @@ export const sendExpiryWarnings = inngest.createFunction(
                 .eq("status", "ACTIVE")
                 .gte("end_time_current", windowStart.toISOString())
                 .lte("end_time_current", windowEnd.toISOString())
-            //.eq("warning_sent", false) // Ideally
+                .eq("warning_sent", false)
 
             if (error) throw error;
             return data || [];
@@ -65,6 +65,11 @@ export const sendExpiryWarnings = inngest.createFunction(
                     expireTime: new Date(session.end_time_current),
                     link
                 });
+
+                // Mark as sent to prevent duplicates
+                await (supabase.from('sessions') as any)
+                    .update({ warning_sent: true })
+                    .eq('id', session.id)
 
                 results.push({ id: session.id, status: 'warning_sent' });
             }

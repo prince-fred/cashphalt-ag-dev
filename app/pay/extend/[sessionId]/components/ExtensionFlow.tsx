@@ -36,6 +36,16 @@ export function ExtensionFlow({ session, property }: ExtensionFlowProps) {
                 sessionId: session.id,
                 durationHours: duration
             })
+
+            if (result.success && !result.clientSecret) {
+                // Free extension success
+                // Redirect to success page or show success state
+                // Since this is extension, maybe just reload or go to a success view?
+                // Let's go to the success page which should handle the session view
+                window.location.href = `/pay/${property.id}/success?session_id=${session.id}&extended=true`
+                return
+            }
+
             setPriceCents(result.amountCents)
             if (result.clientSecret) {
                 setClientSecret(result.clientSecret)

@@ -34,24 +34,26 @@ export async function getSessions() {
 export async function getSessionByPaymentIntent(paymentIntentId: string) {
     const supabase = await createClient()
 
-    const { data, error } = await supabase
-        .from('sessions')
+    const { data, error } = await (supabase
+        .from('sessions') as any)
         .select(`
             *,
             properties (
                 name,
                 slug,
                 allocation_mode
-            ),
-            parking_units (
-                name
             )
         `)
         .eq('payment_intent_id', paymentIntentId)
         .single()
 
     if (error) {
-        console.error('Error fetching session:', error)
+        console.error('Error fetching session by Intent:', error)
+        return null
+    }
+
+    if (!data) {
+        console.warn('Session found but data is null unexpectedly')
         return null
     }
 

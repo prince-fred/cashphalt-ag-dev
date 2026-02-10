@@ -44,6 +44,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
     const [duration, setDuration] = useState(1) // Hours
     const [plate, setPlate] = useState('')
     const [customerEmail, setCustomerEmail] = useState('')
+    const [phone, setPhone] = useState('')
     const [clientSecret, setClientSecret] = useState<string | null>(null)
     const [priceCents, setPriceCents] = useState(500) // Default fallback
     const [discountCode, setDiscountCode] = useState('')
@@ -79,6 +80,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                 durationHours: duration,
                 plate,
                 customerEmail,
+                customerPhone: phone,
                 discountCode: appliedDiscount?.code,
                 unitId: unit?.id
             })
@@ -250,6 +252,18 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-2">
+                                    Phone Number <span className="text-red-500">*</span>
+                                </label>
+                                <Input
+                                    type="tel"
+                                    placeholder="(555) 123-4567"
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
+                                    className="h-12"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-2">
                                     Email Receipt <span className="text-gray-500 normal-case font-normal">(Optional)</span>
                                 </label>
                                 <Input
@@ -272,7 +286,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                             </Button>
                             <Button
                                 onClick={handleReview}
-                                disabled={!plate || isProcessing}
+                                disabled={!plate || !phone || isProcessing}
                                 className="flex-1 h-12 text-lg"
                             >
                                 {isProcessing ? (
