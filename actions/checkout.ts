@@ -45,7 +45,7 @@ export async function createParkingSession({ propertyId, durationHours, plate, c
 
     if (sessionError || !session) {
         console.error('Session Create Error:', sessionError)
-        throw new Error('Failed to create parking session')
+        throw new Error(`Failed to create parking session: ${sessionError?.message || 'Unknown error'}`)
     }
 
     // 3. Create Session Snapshot (Immutable Record)

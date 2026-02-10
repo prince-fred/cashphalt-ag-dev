@@ -2,13 +2,14 @@
 
 import { useState } from 'react'
 import { Database } from '@/db-types'
-import { upsertProperty, createParkingUnit, deleteParkingUnit } from '@/actions/properties'
+import { upsertProperty, createParkingUnit, deleteParkingUnit, generateQrCode } from '@/actions/properties'
 import { uploadPropertyLogo } from '@/actions/upload'
 import { useRouter } from 'next/navigation'
 import { Save, Plus, Trash2, QrCode, Download, ExternalLink, Upload, ImageIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import Image from 'next/image'
+import { Modal } from '@/components/ui/Modal'
 
 type Property = Database['public']['Tables']['properties']['Row']
 type Organization = Database['public']['Tables']['organizations']['Row']
@@ -66,6 +67,25 @@ export function PropertyEditor({ property, organizations, units = [] }: Property
 
     const [newUnitName, setNewUnitName] = useState('')
     const [isAddingUnit, setIsAddingUnit] = useState(false)
+
+    const [qrUnit, setQrUnit] = useState<ParkingUnit | null>(null)
+    const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null)
+    const [loadingQr, setLoadingQr] = useState(false)
+
+    const handleShowQr = async (unit: ParkingUnit) => {
+        setQrUnit(unit)
+        setLoadingQr(true)
+        try {
+            const url = `${process.env.NEXT_PUBLIC_APP_URL || ''}/pay/${property?.id}?unit=${unit.id}`
+            const qr = await generateQrCode(url)
+            setQrCodeUrl(qr)
+        } catch (error) {
+            console.error('Failed to generate QR', error)
+            toast.error('Failed to generate QR code')
+        } finally {
+            setLoadingQr(false)
+        }
+    }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target
@@ -328,6 +348,13 @@ export function PropertyEditor({ property, organizations, units = [] }: Property
                                                     </td>
                                                     <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
                                                         <button
+                                                            className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                                                            onClick={() => handleShowQr(unit)}
+                                                            title="Show QR Code"
+                                                        >
+                                                            <QrCode size={16} />
+                                                        </button>
+                                                        <button
                                                             className="p-2 text-slate-400 hover:text-red-600 transition-colors"
                                                             onClick={() => handleDeleteUnit(unit.id)}
                                                             title="Delete"
@@ -344,6 +371,43 @@ export function PropertyEditor({ property, organizations, units = [] }: Property
                         )}
                     </div>
                 </div>
+            )}
+            {qrUnit && (
+                <Modal
+                    isOpen={!!qrUnit}
+                    onClose={() => { setQrUnit(null); setQrCodeUrl(null) }}
+                    title={`QR Code for ${qrUnit.name}`}
+                >
+                    <div className="flex flex-col items-center gap-4 py-4">
+                        {loadingQr ? (
+                            <div className="w-48 h-48 flex items-center justify-center bg-slate-50 rounded-lg">
+                                <span className="text-slate-400 animate-pulse">Generating...</span>
+                            </div>
+                        ) : qrCodeUrl ? (
+                            <>
+                                <div className="p-4 bg-white border border-slate-100 rounded-lg shadow-sm">
+                                    <Image
+                                        src={qrCodeUrl}
+                                        alt={`QR Code for ${qrUnit.name}`}
+                                        width={200}
+                                        height={200}
+                                        className="rounded"
+                                    />
+                                </div>
+                                <a
+                                    href={qrCodeUrl}
+                                    download={`qr-${property?.slug}-${qrUnit.name}.png`}
+                                    className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors w-full justify-center"
+                                >
+                                    <Download size={16} />
+                                    Download PNG
+                                </a>
+                            </>
+                        ) : (
+                            <div className="text-red-500">Failed to load QR code</div>
+                        )}
+                    </div>
+                </Modal>
             )}
         </div>
     )

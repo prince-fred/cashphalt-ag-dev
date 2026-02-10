@@ -74,6 +74,13 @@ export async function upsertProperty(data: PropertyInsert | PropertyUpdate) {
 
     revalidatePath('/admin/properties')
     revalidatePath(`/admin/properties/${inserted.id}`)
+
+    // If this was a new property (no ID in input data), create a default unit
+    if (!data.id) {
+        const defaultUnitName = (data.allocation_mode === 'SPOT') ? 'Spot 1' : 'Zone A'
+        await createParkingUnit(inserted.id, defaultUnitName)
+    }
+
     return { success: true, id: inserted.id }
 }
 
@@ -123,6 +130,35 @@ export async function deleteParkingUnit(unitId: string) {
 
     // Get property_id for revalidation before deleting (optional but good practice)
     // For simplicity, just delete and we might need to rely on client refresh or return propertyId
+
+    // Check if this is the last unit for the property
+    // First we need to get the property_id of this unit
+    const UnitClient = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { data: unit, error: fetchError } = await (UnitClient.from('parking_units') as any)
+        .select('property_id')
+        .eq('id', unitId)
+        .single()
+
+    if (fetchError || !unit) {
+        throw new Error("Unit not found")
+    }
+
+    // Count units for this property
+    const { count, error: countError } = await (UnitClient.from('parking_units') as any)
+        .select('*', { count: 'exact', head: true })
+        .eq('property_id', unit.property_id)
+
+    if (countError) {
+        throw new Error("Failed to check property units")
+    }
+
+    if (count !== null && count <= 1) {
+        throw new Error("Cannot delete the last unit. A property must have at least one unit.")
+    }
 
     const { error } = await (adminSupabase.from('parking_units') as any)
         .delete()

@@ -50,7 +50,6 @@ export default async function PublicParkingPage({ params, searchParams }: PagePr
                         ) : (
                             <div className="flex items-center justify-center gap-2 text-signal-yellow mb-2 font-bold uppercase tracking-wider text-xs">
                                 <MapPin size={14} />
-                                <span>Official Zone</span>
                             </div>
                         )}
                         <h1 className="text-2xl font-bold tracking-tight mb-1">{property.name}</h1>
