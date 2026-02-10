@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { stripe } from '@/lib/stripe'
 import { calculatePrice } from '@/lib/parking/pricing'
 import { addMinutes, differenceInHours } from 'date-fns'
+import { sendSessionReceipt } from '@/lib/notifications'
 
 interface ExtendSessionParams {
     sessionId: string
@@ -19,6 +20,7 @@ export async function extendSession({ sessionId, durationHours }: ExtendSessionP
         .select(`
             *,
             properties (
+                name,
                 max_booking_duration_hours,
                 timezone
             )
@@ -77,6 +79,17 @@ export async function extendSession({ sessionId, durationHours }: ExtendSessionP
             .eq('id', sessionId)
 
         if (updateError) throw new Error("Failed to extend session")
+
+        // Send Receipt (even if free)
+        await sendSessionReceipt({
+            toEmail: session.customer_email,
+            toPhone: session.customer_phone,
+            plate: session.vehicle_plate,
+            propertyName: (session.properties as any)?.name || 'Parking Lot',
+            amountCents: 0,
+            endTime: newEnd,
+            link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://cashphalt.com'}/pay/extend/${sessionId}`
+        }).catch(err => console.error('Failed to send free extension receipt:', err))
 
         return {
             clientSecret: null, // No payment needed

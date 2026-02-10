@@ -1,7 +1,7 @@
 
 import { inngest } from "../client";
 import { createClient } from "@/utils/supabase/server"; // Or admin client if preferred
-import { sendSessionReceipt, sendExpiryWarning } from "@/lib/notifications";
+import { sendExpiryWarning } from "@/lib/notifications";
 import { createAdminClient } from "@/utils/supabase/admin";
 
 // Define the function

@@ -97,7 +97,7 @@ export async function POST(req: Request) {
                         // 4. Send Notifications
                         await sendSessionReceipt({
                             toEmail: sessionData.customer_email,
-                            toPhone: null,
+                            toPhone: sessionData.customer_phone,
                             plate: sessionData.vehicle_plate,
                             propertyName: (sessionData.properties as any)?.name || 'Parking Lot',
                             amountCents: paymentIntent.amount,

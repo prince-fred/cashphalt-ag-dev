@@ -48,12 +48,16 @@ export async function getSessionByPaymentIntent(paymentIntentId: string) {
         .single()
 
     if (error) {
+        // PGRST116: JSON object requested, multiple (or no) rows returned
+        if (error.code === 'PGRST116') {
+            console.warn('Session not found for Intent:', paymentIntentId)
+            return null
+        }
         console.error('Error fetching session by Intent:', error)
         return null
     }
 
     if (!data) {
-        console.warn('Session found but data is null unexpectedly')
         return null
     }
 

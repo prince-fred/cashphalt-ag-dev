@@ -75,7 +75,12 @@ export async function createParkingSession({ propertyId, durationHours, plate, c
         automatic_payment_methods: { enabled: true }
     })
 
-    // 5. Build return object
+    // 5. Update Session with Payment Intent ID (CRITICAL: Fixes race condition on Success Page)
+    await (supabase.from('sessions') as any)
+        .update({ payment_intent_id: paymentIntent.id })
+        .eq('id', session.id)
+
+    // 6. Build return object
     return {
         clientSecret: paymentIntent.client_secret,
         sessionId: session.id,
