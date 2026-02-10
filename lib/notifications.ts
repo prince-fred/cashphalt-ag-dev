@@ -10,7 +10,8 @@ const twilioClient = twilio(
 )
 
 const FROM_PHONE = process.env.TWILIO_PHONE_NUMBER
-const FROM_EMAIL = 'Cashphalt <receipts@cashphalt.com>' // Verify this domain in Resend!
+// Verified domain: p.cashphalt.com
+const FROM_EMAIL = 'Cashphalt <receipts@p.cashphalt.com>'
 
 interface SendReceiptParams {
     toEmail?: string | null
