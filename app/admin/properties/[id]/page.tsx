@@ -5,6 +5,8 @@ import { ArrowLeft, Download } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 
+import { PropertyUnitsEditor } from '../components/PropertyUnitsEditor'
+
 export default async function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
     const isNew = id === 'new'
@@ -29,7 +31,15 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
             <div className="flex items-start gap-8 flex-col lg:flex-row">
                 <div className="flex-1 w-full">
                     <h1 className="text-2xl font-bold text-slate-900 mb-6">{isNew ? 'New Property' : 'Edit Property'}</h1>
-                    <PropertyEditor property={property} organizations={organizations} units={units} />
+                    <PropertyEditor property={property} organizations={organizations} />
+                    {property && (
+                        <PropertyUnitsEditor
+                            propertyId={property.id}
+                            propertySlug={property.slug}
+                            allocationMode={property.allocation_mode}
+                            units={units}
+                        />
+                    )}
                 </div>
 
                 {!isNew && qrDataUrl && (
