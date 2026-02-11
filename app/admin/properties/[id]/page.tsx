@@ -32,6 +32,20 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                 <div className="flex-1 w-full">
                     <h1 className="text-2xl font-bold text-slate-900 mb-6">{isNew ? 'New Property' : 'Edit Property'}</h1>
                     <PropertyEditor property={property} organizations={organizations} />
+
+                    {property && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+                            <Link href={`/admin/properties/${property.id}/pricing`} className="p-6 bg-white border border-slate-200 rounded-xl hover:border-indigo-500 hover:shadow-md transition-all group">
+                                <h3 className="text-lg font-bold text-slate-900 group-hover:text-indigo-600">Pricing Rules</h3>
+                                <p className="text-slate-500 text-sm mt-1">Manage rates, time windows, and schedules.</p>
+                            </Link>
+                            <Link href={`/admin/properties/${property.id}/discounts`} className="p-6 bg-white border border-slate-200 rounded-xl hover:border-indigo-500 hover:shadow-md transition-all group">
+                                <h3 className="text-lg font-bold text-slate-900 group-hover:text-indigo-600">Discounts</h3>
+                                <p className="text-slate-500 text-sm mt-1">Create promo codes and manage usage limits.</p>
+                            </Link>
+                        </div>
+                    )}
+
                     {property && (
                         <PropertyUnitsEditor
                             propertyId={property.id}
