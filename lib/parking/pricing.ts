@@ -72,25 +72,34 @@ export async function calculatePrice(
         }
     }
 
-    let selectedRule = matchedRule
-    let baseAmountCents = calculateRuleAmount(selectedRule, durationHours)
+    let selectedRule: PricingRule | null = matchedRule
+    let baseAmountCents = 0
 
-    // OPTIMIZATION: "Daily Max" Logic
-    if (selectedRule.rate_type === 'DAILY') {
-        const hourlyRule = rules.find(r =>
-            r.id !== selectedRule.id &&
-            r.rate_type === 'HOURLY' &&
-            isRuleApplicable(r, startTime, propertyTimezone)
-        )
+    if (matchedRule) {
+        selectedRule = matchedRule
+        baseAmountCents = calculateRuleAmount(selectedRule, durationHours)
 
-        if (hourlyRule) {
-            const hourlyAmount = calculateRuleAmount(hourlyRule, durationHours)
-            if (hourlyAmount < baseAmountCents) {
-                console.log(`Switching from DAILY (${baseAmountCents}) to HOURLY (${hourlyAmount})`)
-                baseAmountCents = hourlyAmount
-                selectedRule = hourlyRule
+        // OPTIMIZATION: "Daily Max" Logic
+        if (selectedRule && selectedRule.rate_type === 'DAILY') {
+            const hourlyRule = rules.find(r =>
+                r.id !== selectedRule!.id &&
+                r.rate_type === 'HOURLY' &&
+                isRuleApplicable(r, startTime, propertyTimezone)
+            )
+
+            if (hourlyRule) {
+                const hourlyAmount = calculateRuleAmount(hourlyRule, durationHours)
+                if (hourlyAmount < baseAmountCents) {
+                    console.log(`Switching from DAILY (${baseAmountCents}) to HOURLY (${hourlyAmount})`)
+                    baseAmountCents = hourlyAmount
+                    selectedRule = hourlyRule
+                }
             }
         }
+    } else {
+        // Fallback: $5/hr
+        baseAmountCents = 500 * durationHours
+        selectedRule = null
     }
 
     let finalAmountCents = baseAmountCents
@@ -110,7 +119,7 @@ export async function calculatePrice(
         const discount = discountData as Discount
 
         if (discount && !discountError) {
-            // Check expiry (in UTC is fine for absolute timestamp, but let's be consistent if it was a date-only field, but it's timestamptz)
+            // Check expiry
             if (discount.expires_at && isAfter(new Date(), new Date(discount.expires_at))) {
                 console.log("Discount expired")
             }
