@@ -64,11 +64,10 @@ export async function calculatePrice(
     // Fallback default price if no rule matches
     if (!matchedRule) {
         // Fallback: $5/hr
+        const res = await applyDiscount(500 * durationHours, propertyId, discountCode)
         return {
-            amountCents: 500 * durationHours,
-            ruleApplied: null,
-            discountApplied: null,
-            discountAmountCents: 0
+            ...res,
+            ruleApplied: null
         }
     }
 
@@ -102,11 +101,67 @@ export async function calculatePrice(
         selectedRule = null
     }
 
-    let finalAmountCents = baseAmountCents
+    const { amountCents, discountApplied, discountAmountCents } = await applyDiscount(baseAmountCents, propertyId, discountCode)
+
+    return {
+        amountCents,
+        ruleApplied: selectedRule,
+        discountApplied,
+        discountAmountCents
+    }
+}
+
+export async function calculatePriceForRule(
+    propertyId: string,
+    ruleId: string,
+    discountCode?: string
+): Promise<PriceCalculationResult> {
+    const supabase = await createClient()
+
+    // Fetch the specific rule
+    const { data: rule, error } = await supabase
+        .from('pricing_rules')
+        .select('*')
+        .eq('id', ruleId)
+        .eq('property_id', propertyId)
+        .single()
+
+    if (error || !rule) {
+        throw new Error('Pricing rule not found')
+    }
+
+    // We assume the rule ID passed is valid and active.
+    if (!rule.is_active) {
+        throw new Error('Pricing rule is inactive')
+    }
+
+    // For buckets, we use the rule's fixed price.
+    // If it's HOURLY, we might need a duration? But buckets usually imply a set duration (max_duration).
+    // Let's assume buckets are FLAT or we calculate based on max_duration.
+
+    let baseAmountCents = rule.amount_cents
+    if (rule.rate_type === 'HOURLY' && rule.max_duration_minutes) {
+        baseAmountCents = rule.amount_cents * (rule.max_duration_minutes / 60)
+    }
+
+    const { amountCents, discountApplied, discountAmountCents } = await applyDiscount(baseAmountCents, propertyId, discountCode)
+
+    return {
+        amountCents,
+        ruleApplied: rule as PricingRule,
+        discountApplied,
+        discountAmountCents
+    }
+}
+
+
+async function applyDiscount(baseAmountCents: number, propertyId: string, discountCode?: string) {
+    const supabase = await createClient()
+
     let discountApplied: Discount | null = null
     let discountAmountCents = 0
+    let finalAmountCents = baseAmountCents
 
-    // 3. Apply Discount
     if (discountCode) {
         const { data: discountData, error: discountError } = await (supabase
             .from('discounts') as any)
@@ -138,13 +193,9 @@ export async function calculatePrice(
         }
     }
 
-    return {
-        amountCents: finalAmountCents,
-        ruleApplied: selectedRule,
-        discountApplied,
-        discountAmountCents
-    }
+    return { amountCents: finalAmountCents, discountApplied, discountAmountCents }
 }
+
 
 export function isRuleApplicable(rule: PricingRule, date: Date, timezone: string): boolean {
     // Convert the input UTC date to the Property's Zoned Time
@@ -164,11 +215,6 @@ export function isRuleApplicable(rule: PricingRule, date: Date, timezone: string
         // We create a date object for the current zoned day with the rule's time
         const ruleStart = parse(rule.start_time, 'HH:mm:ss', zonedDate)
         const ruleEnd = parse(rule.end_time, 'HH:mm:ss', zonedDate)
-
-        // If end time is before start time, it means overnight (e.g. 22:00 to 06:00 next day)
-        // NOT HANDLING OVERNIGHT COMPLEXITY YET per implementation plan instructions to keep it simple first/MVP?
-        // Actually, the PRD says "Overnight windows supported". 
-        // Logic: If start > end, then we check if time >= start OR time <= end
 
         if (isBefore(ruleEnd, ruleStart)) {
             // Overnight window

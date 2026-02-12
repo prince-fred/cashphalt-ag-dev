@@ -10,25 +10,18 @@ export const sendExpiryWarnings = inngest.createFunction(
     // Run every 15 minutes
     { cron: "*/15 * * * *" },
     async ({ step }) => {
-        // 1. Fetch expiring sessions
         const expiringSessions = await step.run("fetch-expiring-sessions", async () => {
             const supabase = createAdminClient();
             const now = new Date();
-            // Look for sessions expiring in the next 15-30 minutes?
-            // Or exactly 15 mins from now?
-            // Logic: expiring between NOW+10m and NOW+25m to catch the 15-min window safely without dupes (assuming we flag them).
-            // Better yet: Add a `warning_sent` flag to sessions to avoid duplicate spam.
 
-            const fifteenMinutesFromNow = new Date(now.getTime() + 15 * 60 * 1000);
-            const windowStart = new Date(now.getTime() + 10 * 60 * 1000); // 10 mins from now
-            const windowEnd = new Date(now.getTime() + 20 * 60 * 1000);   // 20 mins from now
+            // CRON runs every 15 minutes.
+            // We search from NOW+5m to NOW+30m to ensure we catch everything with overlap.
+            // Overlap is safe because we filter by `warning_sent: false`.
+
+            const windowStart = new Date(now.getTime() + 5 * 60 * 1000);  // 5 mins from now
+            const windowEnd = new Date(now.getTime() + 30 * 60 * 1000);   // 30 mins from now
 
             console.log(`[Inngest] Checking expiry between ${windowStart.toISOString()} and ${windowEnd.toISOString()}`)
-
-            // Since we don't have a `warning_sent` column yet, we might spam if we aren't careful.
-            // For MVP, let's assume we add the column OR just rely on the narrow window.
-            // Let's add the column via migration? 
-            // User asked for "functionality", implicit schema change is okay.
 
             const { data, error } = await (supabase
                 .from("sessions") as any)

@@ -222,9 +222,12 @@ export type Database = {
                     property_id: string
                     priority: number
                     name: string | null
+                    description: string | null
                     days_of_week: number[] | null
                     start_time: string | null
                     end_time: string | null
+                    min_duration_minutes: number | null
+                    max_duration_minutes: number | null
                     rate_type: 'HOURLY' | 'FLAT' | 'DAILY'
                     amount_cents: number
                     is_active: boolean
@@ -235,9 +238,12 @@ export type Database = {
                     property_id: string
                     priority: number
                     name?: string | null
+                    description?: string | null
                     days_of_week?: number[] | null
                     start_time?: string | null
                     end_time?: string | null
+                    min_duration_minutes?: number | null
+                    max_duration_minutes?: number | null
                     rate_type: 'HOURLY' | 'FLAT' | 'DAILY'
                     amount_cents: number
                     is_active?: boolean
@@ -248,9 +254,12 @@ export type Database = {
                     property_id?: string
                     priority?: number
                     name?: string | null
+                    description?: string | null
                     days_of_week?: number[] | null
                     start_time?: string | null
                     end_time?: string | null
+                    min_duration_minutes?: number | null
+                    max_duration_minutes?: number | null
                     rate_type?: 'HOURLY' | 'FLAT' | 'DAILY'
                     amount_cents?: number
                     is_active?: boolean

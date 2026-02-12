@@ -2,24 +2,23 @@
 
 import { useState, useEffect } from 'react'
 import { Database } from '@/db-types'
-import { Clock, CreditCard, Car, CheckCircle2, ArrowRight, ArrowLeft, Tag, MapPin } from 'lucide-react'
+import { Clock, CreditCard, Car, CheckCircle2, ArrowRight, ArrowLeft, Tag, MapPin, Info } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { createParkingSession } from '@/actions/checkout'
-import { getParkingPrice } from '@/actions/parking'
+import { getParkingPriceForRule, getParkingOptions } from '@/actions/parking'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Slider } from '@/components/ui/Slider'
 
 // Helper hook for hydration-safe time
-function useClientTime(durationHours: number) {
+function useClientTime(durationMinutes: number) {
     const [timeStr, setTimeStr] = useState<string>('--:--')
 
     useEffect(() => {
-        const date = new Date(Date.now() + durationHours * 60 * 60 * 1000)
+        const date = new Date(Date.now() + durationMinutes * 60 * 1000)
         setTimeStr(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
-    }, [durationHours])
+    }, [durationMinutes])
 
     return timeStr
 }
@@ -32,7 +31,7 @@ if (!publishableKey) {
 const stripePromise = loadStripe(publishableKey!);
 
 type Property = Database['public']['Tables']['properties']['Row']
-
+type PricingRule = Database['public']['Tables']['pricing_rules']['Row']
 
 interface ParkingFlowFormProps {
     property: Property
@@ -41,43 +40,82 @@ interface ParkingFlowFormProps {
 
 export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
     const [step, setStep] = useState<1 | 2 | 3>(1)
-    const [duration, setDuration] = useState(1) // Hours
+
+    // Buckets State
+    const [buckets, setBuckets] = useState<PricingRule[]>([])
+    const [selectedRule, setSelectedRule] = useState<PricingRule | null>(null)
+    const [loadingBuckets, setLoadingBuckets] = useState(true)
+
     const [plate, setPlate] = useState('')
     const [customerEmail, setCustomerEmail] = useState('')
     const [phone, setPhone] = useState('')
     const [clientSecret, setClientSecret] = useState<string | null>(null)
-    const [priceCents, setPriceCents] = useState(500) // Default fallback
+    const [priceCents, setPriceCents] = useState(0)
     const [discountCode, setDiscountCode] = useState('')
     const [appliedDiscount, setAppliedDiscount] = useState<{ code: string, amount: number } | null>(null)
     const [isProcessing, setIsProcessing] = useState(false)
     const [checkingPrice, setCheckingPrice] = useState(false)
 
-    // Call hook unconditionally
-    const clientTimeStr = useClientTime(duration)
-
-    // Step 1 -> 2
-    const handleDurationSelect = async (hr: number) => {
-        setDuration(hr)
-        // Recalculate price if duration changes
-        setCheckingPrice(true)
-        const res = await getParkingPrice(property.id, hr, appliedDiscount?.code)
-        setPriceCents(res.amountCents)
-        if (res.discountApplied) {
-            setAppliedDiscount({
-                code: res.discountApplied.code,
-                amount: res.discountAmountCents
-            })
+    // Load buckets on mount
+    useEffect(() => {
+        const load = async () => {
+            const opts = await getParkingOptions(property.id)
+            setBuckets(opts)
+            setLoadingBuckets(false)
+            // Select first option by default? Or let user choose?
+            // Let's force user to choose (no default selection) so they see options.
         }
-        setCheckingPrice(false)
+        load()
+    }, [property.id])
+
+    // Helper for display
+    const currentDurationMinutes = selectedRule?.max_duration_minutes || 60
+    const clientTimeStr = useClientTime(currentDurationMinutes)
+
+    const handleSelectRule = async (rule: PricingRule) => {
+        setSelectedRule(rule)
+        setPriceCents(rule.amount_cents)
+        // Reset discount when rule changes because logic might differ (though usually discount applies to total)
+        // But we should re-check price if discount is active.
+        if (discountCode) {
+            setCheckingPrice(true)
+            await checkPrice(rule.id, discountCode)
+            setCheckingPrice(false)
+        } else {
+            setAppliedDiscount(null)
+            setPriceCents(rule.amount_cents)
+        }
+    }
+
+    const checkPrice = async (ruleId: string, code: string) => {
+        try {
+            const res = await getParkingPriceForRule(property.id, ruleId, code)
+
+            if (res.discountApplied) {
+                setPriceCents(res.amountCents)
+                setAppliedDiscount({
+                    code: res.discountApplied.code,
+                    amount: res.discountAmountCents
+                })
+            } else {
+                // Invalid code
+                setPriceCents(res.amountCents) // Reset to base
+                if (code) setAppliedDiscount(null)
+            }
+        } catch (e) {
+            console.error(e)
+        }
     }
 
     // Step 2 -> 3
     const handleReview = async () => {
+        if (!selectedRule) return
+
         setIsProcessing(true)
         try {
             const result = await createParkingSession({
                 propertyId: property.id,
-                durationHours: duration,
+                ruleId: selectedRule.id,
                 plate,
                 customerEmail,
                 customerPhone: phone,
@@ -86,11 +124,16 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
             })
 
             setPriceCents(result.amountCents)
+
             if (result.clientSecret) {
                 setClientSecret(result.clientSecret)
                 setStep(3)
+            } else if (result.amountCents === 0 && result.sessionId) {
+                // Free session succes
+                window.location.href = `/pay/${property.id}/success?session_id=${result.sessionId}`
             } else {
                 console.error("No client secret returned", result);
+                alert("Something went wrong. Please try again.")
             }
         } catch (err) {
             console.error(err)
@@ -117,7 +160,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                     <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-6">
                         <div>
                             <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-3">
-                                Select Duration
+                                Select duration
                             </label>
                             {unit && (
                                 <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
@@ -130,91 +173,132 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                     </div>
                                 </div>
                             )}
-                            <div className="px-1 py-4">
-                                <div className="flex justify-between text-sm font-medium text-gray-600 mb-2">
-                                    <span>1h</span>
-                                    <span>{duration}h</span>
-                                    <span>{property.max_booking_duration_hours}h</span>
+
+                            {loadingBuckets ? (
+                                <div className="space-y-3">
+                                    {[1, 2, 3].map(i => (
+                                        <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+                                    ))}
                                 </div>
-                                <Slider
-                                    min={1}
-                                    max={property.max_booking_duration_hours}
-                                    step={1}
-                                    value={duration}
-                                    onValueChange={handleDurationSelect}
-                                />
-                            </div>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-3">
+                                    {buckets.map(rule => {
+                                        const isSelected = selectedRule?.id === rule.id
+                                        return (
+                                            <button
+                                                key={rule.id}
+                                                onClick={() => handleSelectRule(rule)}
+                                                className={twMerge(
+                                                    "text-left p-4 rounded-xl border-2 transition-all duration-200 flex justify-between items-center group",
+                                                    isSelected
+                                                        ? "border-signal-yellow bg-yellow-50/50 shadow-md"
+                                                        : "border-slate-outline bg-white hover:border-slate-400"
+                                                )}
+                                            >
+                                                <div>
+                                                    <p className={twMerge(
+                                                        "font-bold text-lg",
+                                                        isSelected ? "text-slate-900" : "text-slate-700"
+                                                    )}>
+                                                        {rule.name ?? `${rule.max_duration_minutes} Minutes`}
+                                                    </p>
+                                                    {rule.description && (
+                                                        <p className="text-sm text-slate-500 mt-0.5">{rule.description}</p>
+                                                    )}
+                                                </div>
+                                                <div className="text-right">
+                                                    {rule.amount_cents === 0 ? (
+                                                        <span className="inline-block bg-green-100 text-green-700 font-bold px-3 py-1 rounded text-sm uppercase tracking-wide">
+                                                            Free
+                                                        </span>
+                                                    ) : (
+                                                        <span className={twMerge(
+                                                            "text-xl font-bold",
+                                                            isSelected ? "text-matte-black" : "text-slate-600"
+                                                        )}>
+                                                            ${(rule.amount_cents / 100).toFixed(2)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </button>
+                                        )
+                                    })}
+
+                                    {buckets.length === 0 && (
+                                        <div className="text-center py-8 text-slate-500">
+                                            No parking options available.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
-                        <div className="bg-concrete-grey p-5 rounded-xl flex items-center justify-between border border-slate-outline">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-white p-2 rounded-md border border-slate-outline">
-                                    <Clock size={18} className="text-matte-black" />
-                                </div>
-                                <div>
-                                    <p className="font-mono font-bold text-matte-black">
-                                        {clientTimeStr}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-xs font-bold text-gray-600 uppercase">Total</p>
-                                {appliedDiscount ? (
+                        {selectedRule && (
+                            <div className="bg-concrete-grey p-5 rounded-xl flex items-center justify-between border border-slate-outline animate-in slide-in-from-bottom-2 fade-in duration-300">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-white p-2 rounded-md border border-slate-outline">
+                                        <Clock size={18} className="text-matte-black" />
+                                    </div>
                                     <div>
-                                        <p className="text-sm text-gray-400 line-through decoration-red-500">
-                                            ${(duration * 5).toFixed(2)}
-                                        </p>
-                                        <p className="text-2xl font-bold text-signal-yellow bg-matte-black px-2 rounded">
-                                            ${(priceCents / 100).toFixed(2)}
+                                        <p className="text-xs text-gray-500 font-medium mb-0.5">Expires At</p>
+                                        <p className="font-mono font-bold text-matte-black">
+                                            {clientTimeStr}
                                         </p>
                                     </div>
-                                ) : (
-                                    <p className="text-2xl font-bold text-matte-black">
-                                        ${(priceCents / 100).toFixed(2)}
-                                    </p>
-                                )}
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs font-bold text-gray-600 uppercase">Total</p>
+                                    {appliedDiscount ? (
+                                        <div>
+                                            <p className="text-sm text-gray-400 line-through decoration-red-500">
+                                                ${(selectedRule.amount_cents / 100).toFixed(2)}
+                                            </p>
+                                            <p className="text-2xl font-bold text-signal-yellow bg-matte-black px-2 rounded">
+                                                ${(priceCents / 100).toFixed(2)}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <p className="text-2xl font-bold text-matte-black">
+                                            {priceCents === 0 ? 'FREE' : `$${(priceCents / 100).toFixed(2)}`}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
-                        </div>
+                        )}
 
-                        {/* Promo Code Input */}
-                        <div className="flex gap-2 items-center">
-                            <div className="relative flex-1">
-                                <Tag className="absolute left-3 top-3 text-gray-500" size={16} />
-                                <Input
-                                    placeholder="Promocode"
-                                    className="pl-9 h-10 text-sm uppercase text-matte-black font-medium"
-                                    value={discountCode}
-                                    onChange={e => setDiscountCode(e.target.value.toUpperCase().trim())}
-                                />
+                        {/* Promo Code Input - Only show if rule selected */}
+                        {selectedRule && (
+                            <div className="flex gap-2 items-center">
+                                <div className="relative flex-1">
+                                    <Tag className="absolute left-3 top-3 text-gray-500" size={16} />
+                                    <Input
+                                        placeholder="Promocode"
+                                        className="pl-9 h-10 text-sm uppercase text-matte-black font-medium"
+                                        value={discountCode}
+                                        onChange={e => setDiscountCode(e.target.value.toUpperCase().trim())}
+                                    />
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    className="h-10 text-xs px-3"
+                                    onClick={async () => {
+                                        if (!selectedRule) return
+                                        setCheckingPrice(true)
+                                        await checkPrice(selectedRule.id, discountCode)
+                                        setCheckingPrice(false)
+                                    }}
+                                    disabled={checkingPrice || !discountCode}
+                                >
+                                    {checkingPrice ? '...' : 'Apply'}
+                                </Button>
                             </div>
-                            <Button
-                                variant="outline"
-                                className="h-10 text-xs px-3"
-                                onClick={async () => {
-                                    setCheckingPrice(true)
-                                    // Call action to check validity and get new price
-                                    const res = await getParkingPrice(property.id, duration, discountCode)
-                                    if (res.discountApplied) {
-                                        setPriceCents(res.amountCents)
-                                        setAppliedDiscount({
-                                            code: res.discountApplied.code,
-                                            amount: res.discountAmountCents
-                                        })
-                                    } else {
-                                        // Reset if invalid or empty
-                                        setPriceCents(res.amountCents)
-                                        setAppliedDiscount(null)
-                                        if (discountCode) alert('Invalid code')
-                                    }
-                                    setCheckingPrice(false)
-                                }}
-                                disabled={checkingPrice || !discountCode}
-                            >
-                                {checkingPrice ? '...' : 'Apply'}
-                            </Button>
-                        </div>
+                        )}
 
-                        <Button onClick={() => setStep(2)} className="w-full h-14 text-lg">
+                        <Button
+                            onClick={() => setStep(2)}
+                            className="w-full h-14 text-lg"
+                            disabled={!selectedRule}
+                        >
                             Continue <ArrowRight size={20} className="ml-2" />
                         </Button>
                     </div>
@@ -292,7 +376,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                 {isProcessing ? (
                                     <div className="animate-spin w-5 h-5 border-2 border-matte-black/30 border-t-matte-black rounded-full" />
                                 ) : (
-                                    'Review & Pay'
+                                    priceCents === 0 ? 'Start Parking' : 'Review & Pay'
                                 )}
                             </Button>
                         </div>
@@ -313,8 +397,8 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                 </div>
                             )}
                             <div className="flex justify-between items-center">
-                                <span className="text-sm text-gray-700 font-medium">DURATION</span>
-                                <span className="font-bold">{duration} Hour{duration > 1 ? 's' : ''}</span>
+                                <span className="text-sm text-gray-700 font-medium">OPTION</span>
+                                <span className="font-bold">{selectedRule?.name}</span>
                             </div>
                             <div className="mt-4 pt-3 border-t border-slate-outline flex justify-between items-center">
                                 <span className="font-bold text-lg">Total Due</span>

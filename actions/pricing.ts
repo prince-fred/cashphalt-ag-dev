@@ -15,13 +15,26 @@ export async function upsertPricingRule(rule: PricingRuleInsert) {
         throw new Error('Start time and end time cannot be the same')
     }
 
+    // Debug: Check Auth Context
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    console.log('Upserting Rule - Auth User:', user?.id, 'Role:', user?.role)
+    console.log('Upserting Rule - Payload:', rule)
+
+    if (!user) {
+        throw new Error('User not authenticated in server action')
+    }
+
     const { error } = await supabase
         .from('pricing_rules')
         .upsert(rule)
 
     if (error) {
         console.error('Upsert Rule Error:', error)
-        throw new Error('Failed to save pricing rule')
+        // Check if we can see the property (RLS diagnostic)
+        const { data: propCheck } = await supabase.from('properties').select('id, organization_id').eq('id', rule.property_id).single()
+        console.log('Diagnostic - Can see property?', propCheck)
+
+        throw new Error(`Failed to save pricing rule: ${error.message} - ${error.details}. User: ${user.id}`)
     }
 
     revalidatePath(`/admin/properties/${rule.property_id}/pricing`)
