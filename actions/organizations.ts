@@ -3,8 +3,59 @@
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { Database } from '@/db-types'
+import { stripe } from '@/lib/stripe'
 
 type Organization = Database['public']['Tables']['organizations']['Row']
+
+export async function createStripeConnectAccount(orgId: string) {
+    const supabase = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { data: org } = await supabase.from('organizations').select('*').eq('id', orgId).single()
+    if (!org) throw new Error("Organization not found")
+
+    // 1. Create Account
+    // We use 'express' for easiest onboarding, or 'standard'. 
+    // Express gives us more control over the flow but Stripe handles the UI.
+    const account = await stripe.accounts.create({
+        type: 'express',
+        country: 'US',
+        email: undefined, // Let user provide it, or pass org.email if we had it
+        capabilities: {
+            card_payments: { requested: true },
+            transfers: { requested: true },
+        },
+        business_type: 'company',
+        company: {
+            name: org.name,
+        }
+    })
+
+    // 2. Save ID
+    await supabase.from('organizations').update({ stripe_connect_id: account.id }).eq('id', orgId)
+
+    // 3. Create Account Link
+    const accountLink = await stripe.accountLinks.create({
+        account: account.id,
+        refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/admin/organizations/${orgId}`, // Or a specific error page
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/admin/organizations/${orgId}?connected=true`,
+        type: 'account_onboarding',
+    })
+
+    return { url: accountLink.url }
+}
+
+export async function getStripeAccountLink(accountId: string, orgId: string) {
+    const accountLink = await stripe.accountLinks.create({
+        account: accountId,
+        refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/admin/organizations/${orgId}`,
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/admin/organizations/${orgId}?connected=true`,
+        type: 'account_onboarding',
+    })
+    return { url: accountLink.url }
+}
 
 export async function getOrganizations() {
     // Ideally use authenticated client:

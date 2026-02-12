@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { Database } from '@/db-types'
-import { upsertOrganization, deleteOrganization } from '@/actions/organizations'
+import { upsertOrganization, deleteOrganization, createStripeConnectAccount } from '@/actions/organizations'
 import { useRouter } from 'next/navigation'
-import { Save, Trash2 } from 'lucide-react'
+import { Save, Trash2, CreditCard, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 
 type Organization = Database['public']['Tables']['organizations']['Row']
@@ -16,6 +16,7 @@ export function OrganizationEditor({ organization }: { organization?: Organizati
         name: '',
         slug: '',
         stripe_connect_id: '',
+        platform_fee_percent: 10,
     })
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,6 +55,21 @@ export function OrganizationEditor({ organization }: { organization?: Organizati
         }
     }
 
+    const handleConnect = async () => {
+        if (!organization?.id) {
+            toast.error("Please save the organization first before connecting Stripe.")
+            return
+        }
+        setLoading(true)
+        try {
+            const { url } = await createStripeConnectAccount(organization.id)
+            if (url) window.location.href = url
+        } catch (err: any) {
+            toast.error(err.message || "Failed to start Stripe onboarding")
+            setLoading(false)
+        }
+    }
+
     return (
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
             <form id="org-form" onSubmit={handleSubmit} className="space-y-6">
@@ -80,13 +96,46 @@ export function OrganizationEditor({ organization }: { organization?: Organizati
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Stripe Connect ID</label>
-                        <input
-                            name="stripe_connect_id"
-                            value={formData.stripe_connect_id || ''}
-                            onChange={handleChange}
-                            placeholder="acct_..."
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
-                        />
+                        <div className="flex gap-2">
+                            <input
+                                name="stripe_connect_id"
+                                value={formData.stripe_connect_id || ''}
+                                onChange={handleChange}
+                                placeholder="acct_..."
+                                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                            />
+                            {organization?.id && (
+                                <button
+                                    type="button"
+                                    onClick={handleConnect}
+                                    disabled={loading}
+                                    className="bg-slate-900 text-white px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap hover:bg-slate-800 disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {formData.stripe_connect_id ? <ExternalLink size={14} /> : <CreditCard size={14} />}
+                                    {formData.stripe_connect_id ? 'Update Payouts' : 'Connect Payouts'}
+                                </button>
+                            )}
+                        </div>
+                        {!organization?.id && <p className="text-xs text-orange-500 mt-1">Save organization first to connect Stripe.</p>}
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Platform Fee (%)</label>
+                        <div className="relative">
+                            <input
+                                type="number"
+                                name="platform_fee_percent"
+                                value={formData.platform_fee_percent ?? 10}
+                                onChange={handleChange}
+                                min="0"
+                                max="100"
+                                step="0.1"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                            />
+                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span className="text-gray-500 sm:text-sm">%</span>
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">Cashphalt takes this % + $1.00 service fee.</p>
                     </div>
                 </div>
             </form>

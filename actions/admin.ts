@@ -28,9 +28,39 @@ export async function getAdminStats() {
         .from('properties')
         .select('*', { count: 'exact', head: true })
 
+    // 4. Revenue Today
+    const startOfDay = new Date()
+    startOfDay.setHours(0, 0, 0, 0)
+
+    const { data: revenueTodayData } = await supabase
+        .from('sessions')
+        .select('total_price_cents')
+        .gte('created_at', startOfDay.toISOString())
+        .neq('status', 'CREATED')
+
+    const revenueTodayCents = revenueTodayData?.reduce((sum, s: any) => sum + s.total_price_cents, 0) || 0
+
+    // 5. Total Capacity (Units)
+    const { count: totalUnits } = await supabase
+        .from('parking_units')
+        .select('*', { count: 'exact', head: true })
+
+    // 6. Recent Activity
+    const { data: recentSessions } = await supabase
+        .from('sessions')
+        .select(`
+            *,
+            properties (name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(5)
+
     return {
         activeCount: activeCount || 0,
         totalRevenue: totalRevenueCents / 100,
-        propertyCount: propertyCount || 0
+        revenueToday: revenueTodayCents / 100,
+        propertyCount: propertyCount || 0,
+        totalUnits: totalUnits || 0,
+        recentSessions: recentSessions || []
     }
 }

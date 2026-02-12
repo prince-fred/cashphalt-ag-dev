@@ -29,9 +29,7 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
 
     const promises = []
 
-    // 1. Send SMS (if not opted out / if provided? We don't have phone input yet in UI!)
-    // TODO: We need to add Phone Input to UI if we want to send SMS receipts.
-    // For now, Text-To-Park users have phone numbers implicitly. 
+    // 1. Send SMS (if provided and configured)
     if (toPhone && FROM_PHONE) {
         const message = `Access Granted: ${plate} at ${propertyName}.\nexpires at ${timeString}.\nExtend here: ${link}`
         promises.push(

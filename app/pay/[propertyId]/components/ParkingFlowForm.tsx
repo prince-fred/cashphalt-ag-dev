@@ -39,7 +39,7 @@ interface ParkingFlowFormProps {
 }
 
 export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
-    const [step, setStep] = useState<1 | 2 | 3>(1)
+    const [step, setStep] = useState<1 | 2>(1)
 
     // Buckets State
     const [buckets, setBuckets] = useState<PricingRule[]>([])
@@ -49,6 +49,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
     const [plate, setPlate] = useState('')
     const [customerEmail, setCustomerEmail] = useState('')
     const [phone, setPhone] = useState('')
+    const [termsAccepted, setTermsAccepted] = useState(false)
     const [clientSecret, setClientSecret] = useState<string | null>(null)
     const [priceCents, setPriceCents] = useState(0)
     const [discountCode, setDiscountCode] = useState('')
@@ -107,9 +108,9 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
         }
     }
 
-    // Step 2 -> 3
+    // Step 1 -> 2
     const handleReview = async () => {
-        if (!selectedRule) return
+        if (!selectedRule || !plate || !phone || !customerEmail || !termsAccepted) return
 
         setIsProcessing(true)
         try {
@@ -127,7 +128,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
 
             if (result.clientSecret) {
                 setClientSecret(result.clientSecret)
-                setStep(3)
+                setStep(2)
             } else if (result.amountCents === 0 && result.sessionId) {
                 // Free session succes
                 window.location.href = `/pay/${property.id}/success?session_id=${result.sessionId}`
@@ -147,7 +148,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
         <div className="space-y-8">
             {/* Minimal Stepper */}
             <div className="flex items-center gap-2 mb-6">
-                {[1, 2, 3].map((s) => (
+                {[1, 2].map((s) => (
                     <div key={s} className={twMerge(
                         "h-1.5 flex-1 rounded-full transition-all duration-300",
                         step >= s ? "bg-signal-yellow" : "bg-slate-100"
@@ -157,22 +158,25 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
 
             <div className="min-h-[300px]">
                 {step === 1 && (
-                    <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-6">
-                        <div>
-                            <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-3">
-                                Select duration
-                            </label>
-                            {unit && (
-                                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
-                                    <div className="bg-blue-100 p-2 rounded-md text-blue-700">
-                                        <MapPin size={20} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-0.5">Current Location</p>
-                                        <p className="text-lg font-bold text-blue-900">{unit.name}</p>
-                                    </div>
+                    <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-8">
+                        {unit && (
+                            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
+                                <div className="bg-blue-100 p-2 rounded-md text-blue-700">
+                                    <MapPin size={20} />
                                 </div>
-                            )}
+                                <div>
+                                    <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-0.5">Current Location</p>
+                                    <p className="text-lg font-bold text-blue-900">{unit.name}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PART 1: DURATION SELECTION */}
+                        <div>
+                            <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-3 flex items-center gap-2">
+                                <span className="bg-matte-black text-signal-yellow w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
+                                Select Duration
+                            </label>
 
                             {loadingBuckets ? (
                                 <div className="space-y-3">
@@ -234,175 +238,208 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                         </div>
 
                         {selectedRule && (
-                            <div className="bg-concrete-grey p-5 rounded-xl flex items-center justify-between border border-slate-outline animate-in slide-in-from-bottom-2 fade-in duration-300">
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-white p-2 rounded-md border border-slate-outline">
-                                        <Clock size={18} className="text-matte-black" />
+                            <>
+                                {/* PART 2: SUMMARY & PROMO */}
+                                <div className="bg-concrete-grey p-5 rounded-xl border border-slate-outline animate-in slide-in-from-bottom-2 fade-in duration-300 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="bg-white p-2 rounded-md border border-slate-outline">
+                                                <Clock size={18} className="text-matte-black" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500 font-medium mb-0.5">Expires At</p>
+                                                <p className="font-mono font-bold text-matte-black">
+                                                    {clientTimeStr}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs font-bold text-gray-600 uppercase">Total</p>
+                                            {appliedDiscount ? (
+                                                <div>
+                                                    <p className="text-sm text-gray-400 line-through decoration-red-500">
+                                                        ${(selectedRule.amount_cents / 100).toFixed(2)}
+                                                    </p>
+                                                    <p className="text-2xl font-bold text-signal-yellow bg-matte-black px-2 rounded">
+                                                        ${(priceCents / 100).toFixed(2)}
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <p className="text-2xl font-bold text-matte-black">
+                                                    {priceCents === 0 ? 'FREE' : `$${(priceCents / 100).toFixed(2)}`}
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500 font-medium mb-0.5">Expires At</p>
-                                        <p className="font-mono font-bold text-matte-black">
-                                            {clientTimeStr}
-                                        </p>
+
+                                    {/* Promocode */}
+                                    <div className="flex gap-2 items-center pt-2 border-t border-slate-200">
+                                        <div className="relative flex-1">
+                                            <Tag className="absolute left-3 top-3 text-gray-500" size={16} />
+                                            <Input
+                                                placeholder="Promocode"
+                                                className="pl-9 h-10 text-sm uppercase text-matte-black font-medium bg-white"
+                                                value={discountCode}
+                                                onChange={e => setDiscountCode(e.target.value.toUpperCase().trim())}
+                                            />
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            className="h-10 text-xs px-3 bg-white"
+                                            onClick={async () => {
+                                                if (!selectedRule) return
+                                                setCheckingPrice(true)
+                                                await checkPrice(selectedRule.id, discountCode)
+                                                setCheckingPrice(false)
+                                            }}
+                                            disabled={checkingPrice || !discountCode}
+                                        >
+                                            {checkingPrice ? '...' : 'Apply'}
+                                        </Button>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-xs font-bold text-gray-600 uppercase">Total</p>
-                                    {appliedDiscount ? (
+
+
+                                {/* PART 3: VEHICLE & CONTACT DETAILS */}
+                                <div className="space-y-5 pt-4 animate-in slide-in-from-bottom-4 fade-in duration-500">
+                                    <label className="block text-sm font-bold text-matte-black uppercase tracking-wide flex items-center gap-2">
+                                        <span className="bg-matte-black text-signal-yellow w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
+                                        Enter Details
+                                    </label>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5 ml-1">
+                                            License Plate
+                                        </label>
+                                        <div className="relative">
+                                            <Car className="absolute left-4 top-4 text-gray-500" size={20} />
+                                            <Input
+                                                type="text"
+                                                placeholder="ABC 123"
+                                                value={plate}
+                                                onChange={(e) => setPlate(e.target.value.toUpperCase())}
+                                                className="pl-12 font-mono text-xl uppercase h-14 border-2 focus-visible:border-matte-black"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <p className="text-sm text-gray-400 line-through decoration-red-500">
-                                                ${(selectedRule.amount_cents / 100).toFixed(2)}
-                                            </p>
-                                            <p className="text-2xl font-bold text-signal-yellow bg-matte-black px-2 rounded">
-                                                ${(priceCents / 100).toFixed(2)}
+                                            <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5 ml-1">
+                                                Phone Number <span className="text-red-500">*</span>
+                                            </label>
+                                            <Input
+                                                type="tel"
+                                                placeholder="(555) 123-4567"
+                                                value={phone}
+                                                onChange={(e) => setPhone(e.target.value)}
+                                                className="h-12"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5 ml-1">
+                                                Email Receipt <span className="text-red-500">*</span>
+                                            </label>
+                                            <Input
+                                                type="email"
+                                                placeholder="you@email.com"
+                                                value={customerEmail}
+                                                onChange={(e) => setCustomerEmail(e.target.value)}
+                                                className="h-12"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Terms and Conditions Checkbox */}
+                                    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                        <div className="flex bg-white h-6 w-6 shrink-0 items-center justify-center rounded-md border border-gray-300 has-[:checked]:bg-matte-black has-[:checked]:border-matte-black focus-within:ring-2 focus-within:ring-matte-black/20">
+                                            <input
+                                                id="terms"
+                                                type="checkbox"
+                                                checked={termsAccepted}
+                                                onChange={(e) => setTermsAccepted(e.target.checked)}
+                                                className="h-4 w-4 opacity-0 absolute cursor-pointer"
+                                            />
+                                            <CheckCircle2 size={14} className={`text-signal-yellow transition-opacity pointer-events-none ${termsAccepted ? 'opacity-100' : 'opacity-0'}`} />
+                                        </div>
+                                        <div className="grid gap-1.5 leading-none">
+                                            <label
+                                                htmlFor="terms"
+                                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer text-gray-700"
+                                            >
+                                                I agree to the <a href="/terms" target="_blank" className="underline font-bold text-matte-black hover:text-blue-600">Terms and Conditions</a>
+                                            </label>
+                                            <p className="text-xs text-muted-foreground text-gray-500">
+                                                By checking this box, you agree to our terms of service and privacy policy.
                                             </p>
                                         </div>
-                                    ) : (
-                                        <p className="text-2xl font-bold text-matte-black">
-                                            {priceCents === 0 ? 'FREE' : `$${(priceCents / 100).toFixed(2)}`}
-                                        </p>
-                                    )}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-
-                        {/* Promo Code Input - Only show if rule selected */}
-                        {selectedRule && (
-                            <div className="flex gap-2 items-center">
-                                <div className="relative flex-1">
-                                    <Tag className="absolute left-3 top-3 text-gray-500" size={16} />
-                                    <Input
-                                        placeholder="Promocode"
-                                        className="pl-9 h-10 text-sm uppercase text-matte-black font-medium"
-                                        value={discountCode}
-                                        onChange={e => setDiscountCode(e.target.value.toUpperCase().trim())}
-                                    />
-                                </div>
-                                <Button
-                                    variant="outline"
-                                    className="h-10 text-xs px-3"
-                                    onClick={async () => {
-                                        if (!selectedRule) return
-                                        setCheckingPrice(true)
-                                        await checkPrice(selectedRule.id, discountCode)
-                                        setCheckingPrice(false)
-                                    }}
-                                    disabled={checkingPrice || !discountCode}
-                                >
-                                    {checkingPrice ? '...' : 'Apply'}
-                                </Button>
-                            </div>
+                            </>
                         )}
 
                         <Button
-                            onClick={() => setStep(2)}
-                            className="w-full h-14 text-lg"
-                            disabled={!selectedRule}
+                            onClick={handleReview}
+                            className="w-full h-14 text-lg mt-4"
+                            disabled={!selectedRule || !plate || !phone || !customerEmail || !termsAccepted || isProcessing}
                         >
-                            Continue <ArrowRight size={20} className="ml-2" />
+                            {isProcessing ? (
+                                <div className="animate-spin w-5 h-5 border-2 border-matte-black/30 border-t-matte-black rounded-full" />
+                            ) : (
+                                <>
+                                    Review & Pay <ArrowRight size={20} className="ml-2" />
+                                </>
+                            )}
                         </Button>
                     </div>
                 )}
 
-                {step === 2 && (
-                    <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-6">
-                        {unit && (
-                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
-                                <div className="bg-blue-100 p-1.5 rounded-md text-blue-700">
-                                    <MapPin size={16} />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-0.5">Parking at</p>
-                                    <p className="text-sm font-bold text-blue-900">{unit.name}</p>
-                                </div>
-                            </div>
-                        )}
-                        <div className="space-y-5">
-                            <div>
-                                <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-2">
-                                    License Plate
-                                </label>
-                                <div className="relative">
-                                    <Car className="absolute left-4 top-4 text-gray-500" size={20} />
-                                    <Input
-                                        type="text"
-                                        placeholder="ABC 123"
-                                        value={plate}
-                                        onChange={(e) => setPlate(e.target.value.toUpperCase())}
-                                        className="pl-12 font-mono text-xl uppercase h-14 border-2 focus-visible:border-matte-black"
-                                        autoFocus
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-2">
-                                    Phone Number <span className="text-red-500">*</span>
-                                </label>
-                                <Input
-                                    type="tel"
-                                    placeholder="(555) 123-4567"
-                                    value={phone}
-                                    onChange={(e) => setPhone(e.target.value)}
-                                    className="h-12"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-2">
-                                    Email Receipt <span className="text-gray-500 normal-case font-normal">(Optional)</span>
-                                </label>
-                                <Input
-                                    type="email"
-                                    placeholder="you@email.com"
-                                    value={customerEmail}
-                                    onChange={(e) => setCustomerEmail(e.target.value)}
-                                    className="h-12"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex gap-4 pt-4">
-                            <Button
-                                variant="outline"
-                                onClick={() => setStep(1)}
-                                className="w-14 px-0 flex-none"
-                            >
-                                <ArrowLeft size={20} />
-                            </Button>
-                            <Button
-                                onClick={handleReview}
-                                disabled={!plate || !phone || isProcessing}
-                                className="flex-1 h-12 text-lg"
-                            >
-                                {isProcessing ? (
-                                    <div className="animate-spin w-5 h-5 border-2 border-matte-black/30 border-t-matte-black rounded-full" />
-                                ) : (
-                                    priceCents === 0 ? 'Start Parking' : 'Review & Pay'
-                                )}
-                            </Button>
-                        </div>
-                    </div>
-                )}
-
-                {step === 3 && clientSecret && (
+                {step === 2 && clientSecret && (
                     <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                        <Button
+                            variant="outline"
+                            onClick={() => setStep(1)}
+                            className="mb-6 px-0 pl-2 pr-4 h-10 text-sm gap-2 text-gray-600"
+                        >
+                            <ArrowLeft size={16} /> Back to Details
+                        </Button>
+
                         <div className="bg-concrete-grey rounded-xl p-5 mb-6 border border-slate-outline">
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm text-gray-700 font-medium">PLATE</span>
-                                <span className="font-mono font-bold text-lg bg-white px-2 py-0.5 rounded border border-slate-outline">{plate}</span>
-                            </div>
-                            {unit && (
-                                <div className="flex justify-between items-center mb-2">
-                                    <span className="text-sm text-gray-700 font-medium">LOCATION</span>
-                                    <span className="font-bold text-matte-black">{unit.name}</span>
+                            <h3 className="font-bold text-lg mb-4 text-matte-black border-b border-slate-200 pb-2">Order Summary</h3>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-gray-600 font-medium">License Plate</span>
+                                    <span className="font-mono font-bold text-lg bg-white px-2 py-0.5 rounded border border-slate-outline">{plate}</span>
                                 </div>
-                            )}
-                            <div className="flex justify-between items-center">
-                                <span className="text-sm text-gray-700 font-medium">OPTION</span>
-                                <span className="font-bold">{selectedRule?.name}</span>
+                                {unit && (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-gray-600 font-medium">Location</span>
+                                        <span className="font-bold text-matte-black text-right">{unit.name}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-gray-600 font-medium">Duration</span>
+                                    <span className="font-bold text-right">{selectedRule?.name}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-gray-600 font-medium">Contact</span>
+                                    <span className="font-medium text-right text-sm">{customerEmail}</span>
+                                </div>
                             </div>
-                            <div className="mt-4 pt-3 border-t border-slate-outline flex justify-between items-center">
-                                <span className="font-bold text-lg">Total Due</span>
-                                <span className="font-bold text-2xl text-matte-black">${(priceCents / 100).toFixed(2)}</span>
+
+                            <div className="mt-4 pt-4 border-t-2 border-slate-200 space-y-2">
+                                <div className="flex justify-between items-center text-slate-600">
+                                    <span className="text-sm font-medium">Parking Fee</span>
+                                    <span className="font-medium">${(priceCents / 100).toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-slate-600">
+                                    <span className="text-sm font-medium">Service Fee</span>
+                                    <span className="font-medium">$1.00</span>
+                                </div>
+                                <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                                    <span className="font-bold text-lg text-gray-800">Total Due</span>
+                                    <span className="font-bold text-2xl text-matte-black">${((priceCents + 100) / 100).toFixed(2)}</span>
+                                </div>
                             </div>
                         </div>
 

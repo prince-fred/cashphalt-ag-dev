@@ -53,6 +53,7 @@ export type Database = {
                     name: string
                     slug: string
                     stripe_connect_id: string | null
+                    platform_fee_percent: number
                     created_at: string
                 }
                 Insert: {
@@ -60,6 +61,7 @@ export type Database = {
                     name: string
                     slug: string
                     stripe_connect_id?: string | null
+                    platform_fee_percent?: number
                     created_at?: string
                 }
                 Update: {
@@ -67,6 +69,7 @@ export type Database = {
                     name?: string
                     slug?: string
                     stripe_connect_id?: string | null
+                    platform_fee_percent?: number
                     created_at?: string
                 }
                 Relationships: []
