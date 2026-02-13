@@ -42,6 +42,9 @@ export async function getSessionByPaymentIntent(paymentIntentId: string) {
                 name,
                 slug,
                 allocation_mode
+            ),
+            parking_units (
+                name
             )
         `)
         .eq('payment_intent_id', paymentIntentId)

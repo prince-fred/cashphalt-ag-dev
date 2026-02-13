@@ -35,31 +35,62 @@ export default async function SuccessPage({
                     Your parking session is active. A receipt has been sent to your email.
                 </p>
 
-                {unitName && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-8 text-left">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="bg-blue-100 p-2 rounded-lg text-blue-700">
+                {session && (
+                    <div className="bg-concrete-grey border border-slate-outline rounded-xl p-4 mb-6 text-left space-y-4">
+                        <div className="flex items-start gap-3">
+                            <div className="bg-white p-2 rounded-lg text-matte-black border border-slate-200">
                                 <MapPin size={20} />
                             </div>
                             <div>
-                                <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">Parked at</p>
-                                <p className="text-lg font-bold text-blue-900">{unitName}</p>
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Location</p>
+                                <p className="text-base font-bold text-matte-black leading-tight">
+                                    {/* @ts-ignore */}
+                                    {session.properties?.name}
+                                </p>
+                                {unitName && <p className="text-sm text-gray-600 mt-0.5">Spot/Zone: {unitName}</p>}
                             </div>
                         </div>
-                        {session && (
-                            <div className="flex items-center gap-2 text-sm text-blue-800/70 mt-3 pt-3 border-t border-blue-200/50">
-                                <Clock size={14} />
-                                <span className="font-medium">Valid until {new Date(session.end_time_initial).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+
+                        <div className="h-px bg-slate-200" />
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Vehicle</p>
+                                <p className="text-lg font-bold text-matte-black font-mono">{session.vehicle_plate}</p>
                             </div>
-                        )}
+                            <div>
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Total Paid</p>
+                                <p className="text-lg font-bold text-matte-black">${(session.total_price_cents / 100).toFixed(2)}</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-center gap-3">
+                            <Clock size={18} className="text-blue-600" />
+                            <div>
+                                <p className="text-xs font-bold text-blue-600 uppercase">Valid Until</p>
+                                <p className="text-sm font-bold text-blue-900">
+                                    {new Date(session.end_time_current).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 )}
 
-                <Link href={`/pay/${propertyId}`} className="block w-full">
-                    <Button className="w-full text-lg h-14" variant="primary">
-                        Book Another Session
-                    </Button>
-                </Link>
+                <div className="space-y-3">
+                    {session && (
+                        <Link href={`/pay/extend/${session.id}`} className="block w-full">
+                            <Button className="w-full text-lg h-14 bg-matte-black hover:bg-gray-800 text-white" variant="primary">
+                                Extend Parking
+                            </Button>
+                        </Link>
+                    )}
+
+                    <Link href={`/pay/${propertyId}`} className="block w-full">
+                        <Button className="w-full text-lg h-14 bg-white text-matte-black border-2 border-slate-200 hover:bg-gray-50" variant="outline">
+                            Book Another Session
+                        </Button>
+                    </Link>
+                </div>
 
                 <div className="mt-6 pt-6 border-t border-slate-outline">
                     <Link href="/" className="text-sm font-bold text-gray-500 hover:text-matte-black flex items-center justify-center gap-1 transition-colors">
