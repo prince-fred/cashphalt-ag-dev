@@ -69,7 +69,12 @@ export default async function SuccessPage({
                             <div>
                                 <p className="text-xs font-bold text-blue-600 uppercase">Valid Until</p>
                                 <p className="text-sm font-bold text-blue-900">
-                                    {new Date(session.end_time_current).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                    {new Date(session.end_time_current).toLocaleTimeString([], {
+                                        hour: 'numeric',
+                                        minute: '2-digit',
+                                        // @ts-ignore
+                                        timeZone: session.properties?.timezone || 'UTC'
+                                    })}
                                 </p>
                             </div>
                         </div>

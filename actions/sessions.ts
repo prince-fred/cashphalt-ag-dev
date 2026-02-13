@@ -41,6 +41,7 @@ export async function getSessionByPaymentIntent(paymentIntentId: string) {
             properties (
                 name,
                 slug,
+                timezone,
                 allocation_mode
             ),
             parking_units (
