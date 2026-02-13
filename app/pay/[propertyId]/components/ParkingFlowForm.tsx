@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Database } from '@/db-types'
-import { Clock, CreditCard, Car, CheckCircle2, ArrowRight, ArrowLeft, Tag, MapPin, Info } from 'lucide-react'
+import { Clock, CreditCard, Car, CheckCircle2, ArrowRight, ArrowLeft, Tag, MapPin, Info, Plus, Minus } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
@@ -46,8 +46,6 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
     const maxHours = property.max_booking_duration_hours || 24
     const [duration, setDuration] = useState(minHours)
 
-    // Generate options 
-    const durationOptions = Array.from({ length: maxHours - minHours + 1 }, (_, i) => minHours + i)
 
     const [plate, setPlate] = useState('')
     const [customerEmail, setCustomerEmail] = useState('')
@@ -158,42 +156,45 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                             </div>
                         )}
 
-                        {/* PART 1: DURATION SELECTION (ROLODEX STYLE) */}
+                        {/* PART 1: DURATION SELECTION (STEPPER STYLE) */}
                         <div>
                             <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-3 flex items-center gap-2">
                                 <span className="bg-matte-black text-signal-yellow w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
                                 Select Duration
                             </label>
 
-                            <div className="relative h-48 bg-gray-50 rounded-xl overflow-hidden border-2 border-slate-outline">
-                                {/* Selection Indicator/Overlay */}
-                                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 bg-white/50 border-y-2 border-signal-yellow z-10 pointer-events-none flex items-center justify-between px-4">
-                                     <span className="text-xs font-bold text-signal-yellow uppercase tracking-wider bg-matte-black px-2 py-1 rounded">Selected</span>
+                            <div className="flex items-center justify-between bg-gray-50 rounded-xl p-4 border-2 border-slate-outline">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setDuration(prev => Math.max(minHours, prev - 1))}
+                                    disabled={duration <= minHours}
+                                    className="h-16 w-16 rounded-xl border-2 hover:bg-slate-200 shrink-0"
+                                >
+                                    <Minus size={28} />
+                                </Button>
+
+                                <div className="text-center flex-1 mx-4">
+                                    <div className="text-4xl font-bold font-mono text-matte-black">
+                                        {duration}<span className="text-lg font-sans font-medium text-gray-500 uppercase ml-1">h</span>
+                                    </div>
+                                    <div className="text-sm font-medium text-gray-500 mt-1">
+                                        {duration === 1 ? 'Hour' : 'Hours'}
+                                    </div>
+                                    {priceCents > 0 && (
+                                        <div className="inline-block mt-2 font-bold text-signal-yellow bg-matte-black px-3 py-1 rounded-full text-sm">
+                                            ${(priceCents / 100).toFixed(2)}
+                                        </div>
+                                    )}
                                 </div>
 
-                                <div className="h-full overflow-y-auto snap-y snap-mandatory py-[calc(50%-2rem)] hide-scrollbar">
-                                    {durationOptions.map(hrs => (
-                                        <div 
-                                            key={hrs}
-                                            className={twMerge(
-                                                "h-16 flex items-center justify-center snap-center transition-all duration-300 cursor-pointer",
-                                                duration === hrs ? "opacity-100 scale-110" : "opacity-40 scale-90"
-                                            )}
-                                            onClick={() => setDuration(hrs)}
-                                        >
-                                            <span className={twMerge(
-                                                "text-3xl font-bold font-mono",
-                                                duration === hrs ? "text-matte-black" : "text-gray-400"
-                                            )}>
-                                                {hrs} <span className="text-sm font-sans font-medium uppercase text-gray-500">Hours</span>
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                                
-                                {/* Gradient Fades */}
-                                <div className="absolute top-0 inset-x-0 h-12 bg-gradient-to-b from-gray-50 to-transparent pointer-events-none" />
-                                <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none" />
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setDuration(prev => Math.min(maxHours, prev + 1))}
+                                    disabled={duration >= maxHours}
+                                    className="h-16 w-16 rounded-xl border-2 hover:bg-slate-200 shrink-0"
+                                >
+                                    <Plus size={28} />
+                                </Button>
                             </div>
                         </div>
 
@@ -219,8 +220,8 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                     ) : appliedDiscount ? (
                                         <div>
                                             <p className="text-sm text-gray-400 line-through decoration-red-500">
-                                                 {/* We don't have base price easily available unless checkingPrice returns it, let's just show final */}
-                                                 {/* ${(selectedRule.amount_cents / 100).toFixed(2)} */}
+                                                {/* We don't have base price easily available unless checkingPrice returns it, let's just show final */}
+                                                {/* ${(selectedRule.amount_cents / 100).toFixed(2)} */}
                                             </p>
                                             <p className="text-2xl font-bold text-signal-yellow bg-matte-black px-2 rounded">
                                                 ${(priceCents / 100).toFixed(2)}
@@ -249,89 +250,95 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                 <Button
                                     variant="outline"
                                     className="h-10 text-xs px-3 bg-white"
-                                    disabled={checkingPrice || !discountCode}
+                                    disabled={checkingPrice || !discountCode || (!!appliedDiscount && appliedDiscount.code === discountCode)}
                                 >
-                                    {checkingPrice ? '...' : 'Applied'}
+                                    {checkingPrice ? (
+                                        <div className="animate-spin w-4 h-4 border-2 border-matte-black/30 border-t-matte-black rounded-full" />
+                                    ) : appliedDiscount ? (
+                                        <span className="text-green-600 font-bold">Applied</span>
+                                    ) : (
+                                        'Apply'
+                                    )}
                                 </Button>
                             </div>
                         </div>
 
 
-                                {/* PART 3: VEHICLE & CONTACT DETAILS */}
-                                <div className="space-y-5 pt-4 animate-in slide-in-from-bottom-4 fade-in duration-500">
-                                    <label className="block text-sm font-bold text-matte-black uppercase tracking-wide flex items-center gap-2">
-                                        <span className="bg-matte-black text-signal-yellow w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
-                                        Enter Details
-                                    </label>
+                        {/* PART 3: VEHICLE & CONTACT DETAILS */}
+                        <div className="space-y-5 pt-4 animate-in slide-in-from-bottom-4 fade-in duration-500">
+                            <label className="block text-sm font-bold text-matte-black uppercase tracking-wide flex items-center gap-2">
+                                <span className="bg-matte-black text-signal-yellow w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
+                                Enter Details
+                            </label>
 
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5 ml-1">
-                                            License Plate
-                                        </label>
-                                        <div className="relative">
-                                            <Car className="absolute left-4 top-4 text-gray-500" size={20} />
-                                            <Input
-                                                type="text"
-                                                placeholder="ABC 123"
-                                                value={plate}
-                                                onChange={(e) => setPlate(e.target.value.toUpperCase())}
-                                                className="pl-12 font-mono text-xl uppercase h-14 border-2 focus-visible:border-matte-black"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5 ml-1">
-                                                Phone Number <span className="text-red-500">*</span>
-                                            </label>
-                                            <Input
-                                                type="tel"
-                                                placeholder="(555) 123-4567"
-                                                value={phone}
-                                                onChange={(e) => setPhone(e.target.value)}
-                                                className="h-12"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5 ml-1">
-                                                Email Receipt <span className="text-red-500">*</span>
-                                            </label>
-                                            <Input
-                                                type="email"
-                                                placeholder="you@email.com"
-                                                value={customerEmail}
-                                                onChange={(e) => setCustomerEmail(e.target.value)}
-                                                className="h-12"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Terms and Conditions Checkbox */}
-                                    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                        <div className="flex bg-white h-6 w-6 shrink-0 items-center justify-center rounded-md border border-gray-300 has-[:checked]:bg-matte-black has-[:checked]:border-matte-black focus-within:ring-2 focus-within:ring-matte-black/20">
-                                            <input
-                                                id="terms"
-                                                type="checkbox"
-                                                checked={termsAccepted}
-                                                onChange={(e) => setTermsAccepted(e.target.checked)}
-                                                className="h-4 w-4 opacity-0 absolute cursor-pointer"
-                                            />
-                                            <CheckCircle2 size={14} className={`text-signal-yellow transition-opacity pointer-events-none ${termsAccepted ? 'opacity-100' : 'opacity-0'}`} />
-                                        </div>
-                                        <div className="grid gap-1.5 leading-none">
-                                            <label
-                                                htmlFor="terms"
-                                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer text-gray-700"
-                                            >
-                                                I agree to the <a href="/terms" target="_blank" className="underline font-bold text-matte-black hover:text-blue-600">Terms and Conditions</a>
-                                            </label>
-                                            <p className="text-xs text-muted-foreground text-gray-500">
-                                                By checking this box, you agree to our terms of service and privacy policy.
-                                            </p>
-                                        </div>
-                                    </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5 ml-1">
+                                    License Plate
+                                </label>
+                                <div className="relative">
+                                    <Car className="absolute left-4 top-4 text-gray-500" size={20} />
+                                    <Input
+                                        type="text"
+                                        placeholder="ABC 123"
+                                        value={plate}
+                                        onChange={(e) => setPlate(e.target.value.toUpperCase())}
+                                        className="pl-12 font-mono text-xl uppercase h-14 border-2 focus-visible:border-matte-black"
+                                    />
                                 </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5 ml-1">
+                                        Phone Number <span className="text-red-500">*</span>
+                                    </label>
+                                    <Input
+                                        type="tel"
+                                        placeholder="(555) 123-4567"
+                                        value={phone}
+                                        onChange={(e) => setPhone(e.target.value)}
+                                        className="h-12"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5 ml-1">
+                                        Email Receipt <span className="text-red-500">*</span>
+                                    </label>
+                                    <Input
+                                        type="email"
+                                        placeholder="you@email.com"
+                                        value={customerEmail}
+                                        onChange={(e) => setCustomerEmail(e.target.value)}
+                                        className="h-12"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Terms and Conditions Checkbox */}
+                            <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                <div className="flex bg-white h-6 w-6 shrink-0 items-center justify-center rounded-md border border-gray-300 has-[:checked]:bg-matte-black has-[:checked]:border-matte-black focus-within:ring-2 focus-within:ring-matte-black/20">
+                                    <input
+                                        id="terms"
+                                        type="checkbox"
+                                        checked={termsAccepted}
+                                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                                        className="h-4 w-4 opacity-0 absolute cursor-pointer"
+                                    />
+                                    <CheckCircle2 size={14} className={`text-signal-yellow transition-opacity pointer-events-none ${termsAccepted ? 'opacity-100' : 'opacity-0'}`} />
+                                </div>
+                                <div className="grid gap-1.5 leading-none">
+                                    <label
+                                        htmlFor="terms"
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer text-gray-700"
+                                    >
+                                        I agree to the <a href="/terms" target="_blank" className="underline font-bold text-matte-black hover:text-blue-600">Terms and Conditions</a>
+                                    </label>
+                                    <p className="text-xs text-muted-foreground text-gray-500">
+                                        By checking this box, you agree to our terms of service and privacy policy.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
 
                         <Button
                             onClick={handleReview}
@@ -349,74 +356,74 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                     </div>
                 )}
 
-            {step === 2 && clientSecret && (
-                <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                    <Button
-                        variant="outline"
-                        onClick={() => setStep(1)}
-                        className="mb-6 px-0 pl-2 pr-4 h-10 text-sm gap-2 text-gray-600"
-                    >
-                        <ArrowLeft size={16} /> Back to Details
-                    </Button>
+                {step === 2 && clientSecret && (
+                    <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                        <Button
+                            variant="outline"
+                            onClick={() => setStep(1)}
+                            className="mb-6 px-0 pl-2 pr-4 h-10 text-sm gap-2 text-gray-600"
+                        >
+                            <ArrowLeft size={16} /> Back to Details
+                        </Button>
 
-                    <div className="bg-concrete-grey rounded-xl p-5 mb-6 border border-slate-outline">
-                        <h3 className="font-bold text-lg mb-4 text-matte-black border-b border-slate-200 pb-2">Order Summary</h3>
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-center">
-                                <span className="text-sm text-gray-600 font-medium">License Plate</span>
-                                <span className="font-mono font-bold text-lg bg-white px-2 py-0.5 rounded border border-slate-outline">{plate}</span>
-                            </div>
-                            {unit && (
+                        <div className="bg-concrete-grey rounded-xl p-5 mb-6 border border-slate-outline">
+                            <h3 className="font-bold text-lg mb-4 text-matte-black border-b border-slate-200 pb-2">Order Summary</h3>
+                            <div className="space-y-3">
                                 <div className="flex justify-between items-center">
-                                    <span className="text-sm text-gray-600 font-medium">Location</span>
-                                    <span className="font-bold text-matte-black text-right">{unit.name}</span>
+                                    <span className="text-sm text-gray-600 font-medium">License Plate</span>
+                                    <span className="font-mono font-bold text-lg bg-white px-2 py-0.5 rounded border border-slate-outline">{plate}</span>
                                 </div>
-                            )}
-                            <div className="flex justify-between items-center">
-                                <span className="text-sm text-gray-600 font-medium">Duration</span>
-                                <span className="font-bold text-right">{duration} Hours</span>
+                                {unit && (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-gray-600 font-medium">Location</span>
+                                        <span className="font-bold text-matte-black text-right">{unit.name}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-gray-600 font-medium">Duration</span>
+                                    <span className="font-bold text-right">{duration} Hours</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-gray-600 font-medium">Contact</span>
+                                    <span className="font-medium text-right text-sm">{customerEmail}</span>
+                                </div>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-sm text-gray-600 font-medium">Contact</span>
-                                <span className="font-medium text-right text-sm">{customerEmail}</span>
+
+                            <div className="mt-4 pt-4 border-t-2 border-slate-200 space-y-2">
+                                <div className="flex justify-between items-center text-slate-600">
+                                    <span className="text-sm font-medium">Parking Fee</span>
+                                    <span className="font-medium">${(priceCents / 100).toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-slate-600">
+                                    <span className="text-sm font-medium">Service Fee</span>
+                                    <span className="font-medium">$1.00</span>
+                                </div>
+                                <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                                    <span className="font-bold text-lg text-gray-800">Total Due</span>
+                                    <span className="font-bold text-2xl text-matte-black">${((priceCents + 100) / 100).toFixed(2)}</span>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="mt-4 pt-4 border-t-2 border-slate-200 space-y-2">
-                            <div className="flex justify-between items-center text-slate-600">
-                                <span className="text-sm font-medium">Parking Fee</span>
-                                <span className="font-medium">${(priceCents / 100).toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-slate-600">
-                                <span className="text-sm font-medium">Service Fee</span>
-                                <span className="font-medium">$1.00</span>
-                            </div>
-                            <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                                <span className="font-bold text-lg text-gray-800">Total Due</span>
-                                <span className="font-bold text-2xl text-matte-black">${((priceCents + 100) / 100).toFixed(2)}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <Elements stripe={stripePromise} options={{
-                        clientSecret,
-                        appearance: {
-                            theme: 'flat',
-                            variables: {
-                                colorPrimary: '#121212',
-                                colorBackground: '#ffffff',
-                                colorText: '#121212',
-                                colorDanger: '#DC2626',
-                                fontFamily: 'Inter, system-ui, sans-serif',
-                                borderRadius: '8px',
+                        <Elements stripe={stripePromise} options={{
+                            clientSecret,
+                            appearance: {
+                                theme: 'flat',
+                                variables: {
+                                    colorPrimary: '#121212',
+                                    colorBackground: '#ffffff',
+                                    colorText: '#121212',
+                                    colorDanger: '#DC2626',
+                                    fontFamily: 'Inter, system-ui, sans-serif',
+                                    borderRadius: '8px',
+                                }
                             }
-                        }
-                    }}>
-                        <CheckoutForm propertyId={property.id} />
-                    </Elements>
-                </div>
-            )}
-        </div>
+                        }}>
+                            <CheckoutForm propertyId={property.id} />
+                        </Elements>
+                    </div>
+                )}
+            </div>
         </div >
     )
 }
