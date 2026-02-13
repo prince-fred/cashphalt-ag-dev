@@ -22,11 +22,12 @@ interface SendReceiptParams {
     amountCents: number // e.g. 500
     endTime: Date
     link: string // e.g. /pay/extend/[sessionId]
+    timezone: string
 }
 
-export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName, unitName, amountCents, endTime, link }: SendReceiptParams) {
+export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName, unitName, amountCents, endTime, link, timezone }: SendReceiptParams) {
     const formattedPrice = `$${(amountCents / 100).toFixed(2)}`
-    const timeString = endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const timeString = endTime.toLocaleTimeString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })
 
     const promises = []
 
@@ -68,8 +69,8 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
     await Promise.all(promises)
 }
 
-export async function sendExpiryWarning({ toEmail, toPhone, plate, propertyName, unitName, expireTime, link }: { toEmail?: string | null, toPhone?: string | null, plate: string, propertyName: string, unitName?: string | null, expireTime: Date, link: string }) {
-    const timeString = expireTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+export async function sendExpiryWarning({ toEmail, toPhone, plate, propertyName, unitName, expireTime, link, timezone }: { toEmail?: string | null, toPhone?: string | null, plate: string, propertyName: string, unitName?: string | null, expireTime: Date, link: string, timezone: string }) {
+    const timeString = expireTime.toLocaleTimeString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })
     const promises = []
 
     // SMS

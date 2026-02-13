@@ -25,7 +25,7 @@ export const sendExpiryWarnings = inngest.createFunction(
 
             const { data, error } = await (supabase
                 .from("sessions") as any)
-                .select("*, properties(name)")
+                .select("*, properties(name, timezone)")
                 .eq("status", "ACTIVE")
                 .gte("end_time_current", windowStart.toISOString())
                 .lte("end_time_current", windowEnd.toISOString())
@@ -49,6 +49,7 @@ export const sendExpiryWarnings = inngest.createFunction(
 
                 const link = `${process.env.NEXT_PUBLIC_APP_URL || 'https://cashphalt.com'}/pay/extend/${session.id}`;
                 const propertyName = (session.properties as any)?.name || 'Parking Lot';
+                const timezone = (session.properties as any)?.timezone || 'UTC';
 
                 // Fetch unit name
                 let unitName = null
@@ -70,7 +71,8 @@ export const sendExpiryWarnings = inngest.createFunction(
                     propertyName,
                     unitName,
                     expireTime: new Date(session.end_time_current),
-                    link
+                    link,
+                    timezone
                 });
 
                 // Mark as sent to prevent duplicates

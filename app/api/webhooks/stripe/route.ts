@@ -56,7 +56,7 @@ export async function POST(req: Request) {
                     // 2. Fetch Session Details for Notification & Logic
                     const { data: sessionData, error: fetchError } = await (supabase
                         .from('sessions') as any)
-                        .select('*, properties(name)')
+                        .select('*, properties(name, timezone)')
                         .eq('id', sessionId)
                         .single()
 
@@ -116,7 +116,8 @@ export async function POST(req: Request) {
                             unitName,
                             amountCents: paymentIntent.amount,
                             endTime: new Date(newEndTime),
-                            link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://cashphalt.com'}/pay/extend/${sessionId}`
+                            link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://cashphalt.com'}/pay/extend/${sessionId}`,
+                            timezone: (sessionData.properties as any)?.timezone || 'UTC'
                         })
 
                     } else {
