@@ -52,11 +52,13 @@ export const sendExpiryWarnings = inngest.createFunction(
 
                 // Fetch unit name
                 let unitName = null
-                if (session.unit_id) {
+                // @ts-ignore db-types mismatch
+                if (session.spot_id) {
                     const { data: unit } = await (supabase
                         .from('parking_units') as any)
                         .select('name')
-                        .eq('id', session.unit_id)
+                        // @ts-ignore
+                        .eq('id', session.spot_id)
                         .single()
                     if (unit) unitName = unit.name
                 }

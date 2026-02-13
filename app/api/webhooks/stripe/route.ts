@@ -96,11 +96,13 @@ export async function POST(req: Request) {
 
                         // 3.5 Fetch Unit Name (if any)
                         let unitName = null
-                        if (sessionData.unit_id) {
+                        // @ts-ignore db-types mismatch
+                        if (sessionData.spot_id) {
                             const { data: unit } = await (supabase
                                 .from('parking_units') as any)
                                 .select('name')
-                                .eq('id', sessionData.unit_id)
+                                // @ts-ignore
+                                .eq('id', sessionData.spot_id)
                                 .single()
                             if (unit) unitName = unit.name
                         }
