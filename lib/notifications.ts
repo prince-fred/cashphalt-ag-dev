@@ -18,12 +18,13 @@ interface SendReceiptParams {
     toPhone?: string | null
     plate: string
     propertyName: string
+    unitName?: string | null
     amountCents: number // e.g. 500
     endTime: Date
     link: string // e.g. /pay/extend/[sessionId]
 }
 
-export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName, amountCents, endTime, link }: SendReceiptParams) {
+export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName, unitName, amountCents, endTime, link }: SendReceiptParams) {
     const formattedPrice = `$${(amountCents / 100).toFixed(2)}`
     const timeString = endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
@@ -31,7 +32,10 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
 
     // 1. Send SMS (if provided and configured)
     if (toPhone && FROM_PHONE) {
-        const message = `Parking Granted: ${plate} at ${propertyName}.\nexpires at ${timeString}.\nExtend here: ${link}`
+        let message = `Parking Granted: ${plate} at ${propertyName}`
+        if (unitName) message += ` (Spot: ${unitName})`
+        message += `.\nexpires at ${timeString}.\nExtend here: ${link}`
+
         promises.push(
             twilioClient.messages.create({
                 body: message,
@@ -52,6 +56,7 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
                 html: `
                     <h1>Parking Confirmed</h1>
                     <p><strong>Location:</strong> ${propertyName}</p>
+                    ${unitName ? `<p><strong>Spot/Zone:</strong> ${unitName}</p>` : ''}
                     <p><strong>Plate:</strong> ${plate}</p>
                     <p><strong>Total:</strong> ${formattedPrice}</p>
                     <p><strong>Expires:</strong> ${timeString}</p>
@@ -65,13 +70,16 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
     await Promise.all(promises)
 }
 
-export async function sendExpiryWarning({ toEmail, toPhone, plate, propertyName, expireTime, link }: { toEmail?: string | null, toPhone?: string | null, plate: string, propertyName: string, expireTime: Date, link: string }) {
+export async function sendExpiryWarning({ toEmail, toPhone, plate, propertyName, unitName, expireTime, link }: { toEmail?: string | null, toPhone?: string | null, plate: string, propertyName: string, unitName?: string | null, expireTime: Date, link: string }) {
     const timeString = expireTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     const promises = []
 
     // SMS
     if (toPhone && FROM_PHONE) {
-        const message = `⚠️ Parking Expiring Soon!\nLic: ${plate}\nLoc: ${propertyName}\nExpires: ${timeString}\nExtend now: ${link}`
+        let message = `⚠️ Parking Expiring Soon!\nLic: ${plate}\nLoc: ${propertyName}`
+        if (unitName) message += ` (Spot: ${unitName})`
+        message += `\nExpires: ${timeString}\nExtend now: ${link}`
+
         promises.push(
             twilioClient.messages.create({
                 body: message,
@@ -91,7 +99,7 @@ export async function sendExpiryWarning({ toEmail, toPhone, plate, propertyName,
                 subject: `Action Required: Parking Expiring Soon (${plate})`,
                 html: `
                     <h1>Parking Expiring Soon</h1>
-                    <p>Your parking session at <strong>${propertyName}</strong> for vehicle <strong>${plate}</strong> is about to expire.</p>
+                    <p>Your parking session at <strong>${propertyName}</strong> ${unitName ? `(Spot: <strong>${unitName}</strong>) ` : ''}for vehicle <strong>${plate}</strong> is about to expire.</p>
                     <p style="font-size: 18px; font-weight: bold; color: #DC2626;">Expires at: ${timeString}</p>
                     <br/>
                     <a href="${link}" style="background-color: #000; color: #FFD700; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Extend Session Now</a>

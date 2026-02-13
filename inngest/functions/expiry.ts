@@ -50,11 +50,23 @@ export const sendExpiryWarnings = inngest.createFunction(
                 const link = `${process.env.NEXT_PUBLIC_APP_URL || 'https://cashphalt.com'}/pay/extend/${session.id}`;
                 const propertyName = (session.properties as any)?.name || 'Parking Lot';
 
+                // Fetch unit name
+                let unitName = null
+                if (session.unit_id) {
+                    const { data: unit } = await (supabase
+                        .from('parking_units') as any)
+                        .select('name')
+                        .eq('id', session.unit_id)
+                        .single()
+                    if (unit) unitName = unit.name
+                }
+
                 await sendExpiryWarning({
                     toEmail: session.customer_email,
                     toPhone: session.customer_phone,
                     plate: session.vehicle_plate || 'Unknown',
                     propertyName,
+                    unitName,
                     expireTime: new Date(session.end_time_current),
                     link
                 });

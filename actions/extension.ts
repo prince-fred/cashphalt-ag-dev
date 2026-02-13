@@ -80,12 +80,24 @@ export async function extendSession({ sessionId, durationHours }: ExtendSessionP
 
         if (updateError) throw new Error("Failed to extend session")
 
+        // Fetch Unit Name for receipt
+        let unitName = null
+        if (session.unit_id) {
+            const { data: unit } = await (supabase
+                .from('parking_units') as any)
+                .select('name')
+                .eq('id', session.unit_id)
+                .single()
+            if (unit) unitName = unit.name
+        }
+
         // Send Receipt (even if free)
         await sendSessionReceipt({
             toEmail: session.customer_email,
             toPhone: session.customer_phone,
             plate: session.vehicle_plate,
             propertyName: (session.properties as any)?.name || 'Parking Lot',
+            unitName,
             amountCents: 0,
             endTime: newEnd,
             link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://cashphalt.com'}/pay/extend/${sessionId}`

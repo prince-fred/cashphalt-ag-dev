@@ -94,12 +94,24 @@ export async function POST(req: Request) {
                             else console.log('[Stripe] Session Activated')
                         }
 
+                        // 3.5 Fetch Unit Name (if any)
+                        let unitName = null
+                        if (sessionData.unit_id) {
+                            const { data: unit } = await (supabase
+                                .from('parking_units') as any)
+                                .select('name')
+                                .eq('id', sessionData.unit_id)
+                                .single()
+                            if (unit) unitName = unit.name
+                        }
+
                         // 4. Send Notifications
                         await sendSessionReceipt({
                             toEmail: sessionData.customer_email,
                             toPhone: sessionData.customer_phone,
                             plate: sessionData.vehicle_plate,
                             propertyName: (sessionData.properties as any)?.name || 'Parking Lot',
+                            unitName,
                             amountCents: paymentIntent.amount,
                             endTime: new Date(newEndTime),
                             link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://cashphalt.com'}/pay/extend/${sessionId}`
