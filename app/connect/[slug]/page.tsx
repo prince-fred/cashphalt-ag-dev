@@ -20,7 +20,8 @@ export default function ConnectPage() {
 
         const initConnect = async () => {
             try {
-                const { url } = await createStripeConnectAccountForSlug(slug)
+                const { url, error } = await createStripeConnectAccountForSlug(slug)
+                if (error) throw new Error(error)
                 if (url) window.location.href = url
                 else throw new Error("Could not generate Stripe link")
             } catch (err: any) {

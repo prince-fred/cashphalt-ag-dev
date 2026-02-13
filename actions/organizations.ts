@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/server'
+
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { Database } from '@/db-types'
 import { stripe } from '@/lib/stripe'
@@ -124,38 +124,84 @@ export async function createStripeConnectAccountForSlug(slug: string) {
     )
 
     const { data: org } = await supabase.from('organizations').select('*').eq('slug', slug).single()
-    if (!org) throw new Error("Organization not found")
+    if (!org) return { url: null, error: "Organization not found" }
 
-    let accountId = org.stripe_connect_id
+    try {
+        let accountId = org.stripe_connect_id
 
-    if (!accountId) {
-        // Create account if it doesn't exist
-        const account = await stripe.accounts.create({
-            type: 'express',
-            country: 'US',
-            email: undefined,
-            capabilities: {
-                card_payments: { requested: true },
-                transfers: { requested: true },
-            },
-            business_type: 'company',
-            company: {
-                name: org.name,
-            }
+        if (!accountId) {
+            // Create account if it doesn't exist
+            const account = await stripe.accounts.create({
+                type: 'express',
+                country: 'US',
+                email: undefined,
+                capabilities: {
+                    card_payments: { requested: true },
+                    transfers: { requested: true },
+                },
+                business_type: 'company',
+                company: {
+                    name: org.name,
+                }
+            })
+            accountId = account.id
+
+            // Save ID
+            await supabase.from('organizations').update({ stripe_connect_id: accountId }).eq('id', org.id)
+        }
+
+        // Create Account Link
+        const accountLink = await stripe.accountLinks.create({
+            account: accountId,
+            refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/connect/${slug}`, // Reload the page on refresh/failure
+            return_url: `${process.env.NEXT_PUBLIC_APP_URL}/connect/${slug}?connected=true`,
+            type: 'account_onboarding',
         })
-        accountId = account.id
 
-        // Save ID
-        await supabase.from('organizations').update({ stripe_connect_id: accountId }).eq('id', org.id)
+        return { url: accountLink.url, error: null }
+    } catch (error) {
+        const err = error as { code?: string; message?: string }
+        // If the account ID is invalid (deleted in Stripe but exists in DB), create a new one
+        if (
+            err?.code === 'account_invalid' ||
+            err?.message?.includes('account that is not connected to your platform') ||
+            err?.message?.includes('No such account')
+        ) {
+            console.log("Stripe account invalid or not found. Creating a new one...")
+
+            // Create NEW account
+            const account = await stripe.accounts.create({
+                type: 'express',
+                country: 'US',
+                email: undefined,
+                capabilities: {
+                    card_payments: { requested: true },
+                    transfers: { requested: true },
+                },
+                business_type: 'company',
+                company: {
+                    name: org.name,
+                }
+            })
+
+            const newAccountId = account.id
+
+            // Save NEW ID
+            await supabase.from('organizations').update({ stripe_connect_id: newAccountId }).eq('id', org.id)
+
+            // Retry creating Account Link with NEW ID
+            const accountLink = await stripe.accountLinks.create({
+                account: newAccountId,
+                refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/connect/${slug}`,
+                return_url: `${process.env.NEXT_PUBLIC_APP_URL}/connect/${slug}?connected=true`,
+                type: 'account_onboarding',
+            })
+
+            return { url: accountLink.url, error: null }
+        }
+
+        console.error("Error creating Stripe Connect account:", error)
+        const message = error instanceof Error ? error.message : "Failed to create Stripe Connect account"
+        return { url: null, error: message }
     }
-
-    // Create Account Link
-    const accountLink = await stripe.accountLinks.create({
-        account: accountId,
-        refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/connect/${slug}`, // Reload the page on refresh/failure
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/connect/${slug}?connected=true`,
-        type: 'account_onboarding',
-    })
-
-    return { url: accountLink.url }
 }
