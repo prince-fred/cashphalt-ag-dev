@@ -31,7 +31,7 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
 
     // 1. Send SMS (if provided and configured)
     if (toPhone && FROM_PHONE) {
-        const message = `Access Granted: ${plate} at ${propertyName}.\nexpires at ${timeString}.\nExtend here: ${link}`
+        const message = `Parking Granted: ${plate} at ${propertyName}.\nexpires at ${timeString}.\nExtend here: ${link}`
         promises.push(
             twilioClient.messages.create({
                 body: message,
