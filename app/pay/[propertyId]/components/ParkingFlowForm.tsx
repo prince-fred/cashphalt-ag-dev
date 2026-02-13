@@ -482,22 +482,7 @@ function CheckoutForm({ propertyId }: { propertyId: string }) {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <PaymentElement
-                onReady={(element) => {
-                    console.log("[PaymentElement] Ready. Available methods check:", element)
-                    // Unfortunately element.s doesn't expose methods directly in public API, 
-                    // but we can log that it mounted.
-                }}
-                onChange={(event) => {
-                    console.log("[PaymentElement] Change:", event)
-                }}
-                options={{
-                    wallets: {
-                        applePay: 'auto',
-                        googlePay: 'auto'
-                    }
-                }}
-            />
+            <PaymentElement />
             {msg && <div className="text-error-red text-sm font-medium bg-red-50 p-3 rounded-md border border-red-100">{msg}</div>}
 
             <div className="flex gap-4">

@@ -116,3 +116,46 @@ export async function deleteOrganization(id: string) {
 
     return { success: true }
 }
+
+export async function createStripeConnectAccountForSlug(slug: string) {
+    const supabase = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { data: org } = await supabase.from('organizations').select('*').eq('slug', slug).single()
+    if (!org) throw new Error("Organization not found")
+
+    let accountId = org.stripe_connect_id
+
+    if (!accountId) {
+        // Create account if it doesn't exist
+        const account = await stripe.accounts.create({
+            type: 'express',
+            country: 'US',
+            email: undefined,
+            capabilities: {
+                card_payments: { requested: true },
+                transfers: { requested: true },
+            },
+            business_type: 'company',
+            company: {
+                name: org.name,
+            }
+        })
+        accountId = account.id
+
+        // Save ID
+        await supabase.from('organizations').update({ stripe_connect_id: accountId }).eq('id', org.id)
+    }
+
+    // Create Account Link
+    const accountLink = await stripe.accountLinks.create({
+        account: accountId,
+        refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/connect/${slug}`, // Reload the page on refresh/failure
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/connect/${slug}?connected=true`,
+        type: 'account_onboarding',
+    })
+
+    return { url: accountLink.url }
+}

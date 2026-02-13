@@ -117,6 +117,29 @@ export function OrganizationEditor({ organization }: { organization?: Organizati
                             )}
                         </div>
                         {!organization?.id && <p className="text-xs text-orange-500 mt-1">Save organization first to connect Stripe.</p>}
+
+                        {organization?.id && (
+                            <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                <label className="block text-xs font-medium text-slate-500 mb-1">Shareable Connection Link</label>
+                                <div className="flex gap-2">
+                                    <code className="flex-1 bg-white px-2 py-1.5 rounded border border-slate-200 text-xs text-slate-600 truncate">
+                                        {typeof window !== 'undefined' ? `${window.location.origin}/connect/${organization.slug}` : `.../connect/${organization.slug}`}
+                                    </code>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const url = `${window.location.origin}/connect/${organization.slug}`
+                                            navigator.clipboard.writeText(url)
+                                            toast.success('Link copied to clipboard')
+                                        }}
+                                        className="text-indigo-600 hover:text-indigo-700 text-xs font-medium px-2 py-1.5 hover:bg-indigo-50 rounded transition-colors"
+                                    >
+                                        Copy
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-1">Share this link with the property owner to set up payouts.</p>
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Platform Fee (%)</label>
