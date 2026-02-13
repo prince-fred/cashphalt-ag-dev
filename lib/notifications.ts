@@ -34,7 +34,7 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
     if (toPhone && FROM_PHONE) {
         let message = `Parking Granted: ${plate} at ${propertyName}`
         if (unitName) message += ` (Spot: ${unitName})`
-        message += `.\nexpires at ${timeString}.\nExtend here: ${link}`
+        message += `.\nexpires at ${timeString}.`
 
         promises.push(
             twilioClient.messages.create({
@@ -60,8 +60,6 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
                     <p><strong>Plate:</strong> ${plate}</p>
                     <p><strong>Total:</strong> ${formattedPrice}</p>
                     <p><strong>Expires:</strong> ${timeString}</p>
-                    <br/>
-                    <a href="${link}">Extend Session</a>
                 `
             }).catch(err => console.error('[Notification] Email Failed:', err))
         )
