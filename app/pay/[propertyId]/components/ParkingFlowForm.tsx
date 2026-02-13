@@ -59,18 +59,24 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
     const [checkingPrice, setCheckingPrice] = useState(false)
 
     // Load price when duration or discount changes
+    // Load price when duration changes (using currently applied discount)
     useEffect(() => {
         const fetchPrice = async () => {
             setCheckingPrice(true)
             try {
-                const res = await getParkingPrice(property.id, duration, discountCode)
+                // Use the APPLIED discount, not the input text
+                const codeToUse = appliedDiscount?.code
+                const res = await getParkingPrice(property.id, duration, codeToUse)
                 setPriceCents(res.amountCents)
+
+                // If the duration change somehow invalidated the discount (unlikely but possible), sync state
                 if (res.discountApplied) {
                     setAppliedDiscount({
                         code: res.discountApplied.code,
                         amount: res.discountAmountCents
                     })
-                } else {
+                } else if (codeToUse) {
+                    // Code was applied but now rejected? (e.g. usage limit hit in maintime)
                     setAppliedDiscount(null)
                 }
             } catch (e) {
@@ -80,10 +86,30 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
             }
         }
 
-        // Debounce slightly if needed, but for now direct call
-        const timer = setTimeout(fetchPrice, 300)
-        return () => clearTimeout(timer)
-    }, [property.id, duration, discountCode])
+        fetchPrice()
+    }, [property.id, duration, appliedDiscount?.code])
+
+    const handleApplyPromo = async () => {
+        if (!discountCode) return
+        setCheckingPrice(true)
+        try {
+            const res = await getParkingPrice(property.id, duration, discountCode)
+            setPriceCents(res.amountCents)
+            if (res.discountApplied) {
+                setAppliedDiscount({
+                    code: res.discountApplied.code,
+                    amount: res.discountAmountCents
+                })
+            } else {
+                setAppliedDiscount(null)
+                // Optional: Show "Invalid Code" toast or message
+            }
+        } catch (e) {
+            console.error(e)
+        } finally {
+            setCheckingPrice(false)
+        }
+    }
 
     // Helper for display
     const clientTimeStr = useClientTime(duration * 60)
@@ -251,6 +277,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                     variant="outline"
                                     className="h-10 text-xs px-3 bg-white"
                                     disabled={checkingPrice || !discountCode || (!!appliedDiscount && appliedDiscount.code === discountCode)}
+                                    onClick={handleApplyPromo}
                                 >
                                     {checkingPrice ? (
                                         <div className="animate-spin w-4 h-4 border-2 border-matte-black/30 border-t-matte-black rounded-full" />
