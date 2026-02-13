@@ -25,9 +25,12 @@ interface PricingRulesEditorProps {
     propertyId: string
     rules: PricingRule[]
     timezone: string
+    minDuration: number | null
+    maxDuration: number | null
+    hourlyRateCents: number | null
 }
 
-export function PricingRulesEditor({ propertyId, rules, timezone }: PricingRulesEditorProps) {
+export function PricingRulesEditor({ propertyId, rules, timezone, minDuration, maxDuration, hourlyRateCents }: PricingRulesEditorProps) {
     const router = useRouter()
     const [isAdding, setIsAdding] = useState(false)
     const [loading, setLoading] = useState(false)
@@ -123,6 +126,38 @@ export function PricingRulesEditor({ propertyId, rules, timezone }: PricingRules
                     className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
                 >
                     <Plus size={16} /> Add Rule
+                </button>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 mb-6 flex items-center justify-between">
+                <div>
+                    <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                        <AlertCircle size={16} className="text-indigo-600" />
+                        Base Configuration
+                    </h3>
+                    <p className="text-sm text-slate-500 mt-1">
+                        These settings apply when no specific rules match, or as limits for all bookings.
+                    </p>
+                    <div className="flex gap-6 mt-3 text-sm">
+                        <div>
+                            <span className="block text-xs font-bold text-slate-400 uppercase tracking-wide">Hourly Rate</span>
+                            <span className="font-mono font-medium text-slate-900">${((hourlyRateCents || 500) / 100).toFixed(2)}/hr</span>
+                        </div>
+                        <div>
+                            <span className="block text-xs font-bold text-slate-400 uppercase tracking-wide">Min Duration</span>
+                            <span className="font-mono font-medium text-slate-900">{minDuration || 1} hrs</span>
+                        </div>
+                        <div>
+                            <span className="block text-xs font-bold text-slate-400 uppercase tracking-wide">Max Duration</span>
+                            <span className="font-mono font-medium text-slate-900">{maxDuration || 24} hrs</span>
+                        </div>
+                    </div>
+                </div>
+                <button
+                    onClick={() => router.push(`/admin/properties/${propertyId}`)}
+                    className="text-sm font-medium text-indigo-600 hover:text-indigo-800 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm hover:shadow transition-all"
+                >
+                    Edit Settings
                 </button>
             </div>
 

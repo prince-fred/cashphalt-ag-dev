@@ -34,6 +34,7 @@ export function PropertyEditor({ property, organizations }: PropertyEditorProps)
         price_hourly_cents: property?.price_hourly_cents || 500,
         logo_url: property?.logo_url || '',
         address: property?.address || '',
+        min_duration_hours: property?.min_duration_hours || 1,
     })
 
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,16 +188,31 @@ export function PropertyEditor({ property, organizations }: PropertyEditorProps)
                             </div>
                         </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Max Duration (Hours)</label>
-                        <input
-                            name="max_booking_duration_hours"
-                            type="number"
-                            value={formData.max_booking_duration_hours}
-                            onChange={handleChange}
-                            required
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Min Duration (Hours)</label>
+                            <input
+                                name="min_duration_hours"
+                                type="number"
+                                min="1"
+                                value={formData.min_duration_hours}
+                                onChange={handleChange}
+                                required
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Max Duration (Hours)</label>
+                            <input
+                                name="max_booking_duration_hours"
+                                type="number"
+                                min="1"
+                                value={formData.max_booking_duration_hours}
+                                onChange={handleChange}
+                                required
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                        </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Timezone</label>
@@ -223,6 +239,22 @@ export function PropertyEditor({ property, organizations }: PropertyEditorProps)
                             <option value="ZONE">Zone Based (General Lot)</option>
                             <option value="SPOT">Spot Based (Numbered Spaces)</option>
                         </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Base Hourly Rate ($)</label>
+                        <div className="relative">
+                            <span className="absolute left-3 top-2 text-slate-500">$</span>
+                            <input
+                                name="price_hourly_cents"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={formData.price_hourly_cents !== undefined ? formData.price_hourly_cents / 100 : ''}
+                                onChange={e => setFormData({ ...formData, price_hourly_cents: Math.round(parseFloat(e.target.value) * 100) })}
+                                className="w-full pl-7 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">Fallback rate if no rules match.</p>
                     </div>
                 </div>
 

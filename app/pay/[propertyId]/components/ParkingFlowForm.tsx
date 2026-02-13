@@ -7,7 +7,7 @@ import { twMerge } from 'tailwind-merge'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { createParkingSession } from '@/actions/checkout'
-import { getParkingPriceForRule, getParkingOptions } from '@/actions/parking'
+import { getParkingPrice } from '@/actions/parking'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
@@ -41,10 +41,13 @@ interface ParkingFlowFormProps {
 export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
     const [step, setStep] = useState<1 | 2>(1)
 
-    // Buckets State
-    const [buckets, setBuckets] = useState<PricingRule[]>([])
-    const [selectedRule, setSelectedRule] = useState<PricingRule | null>(null)
-    const [loadingBuckets, setLoadingBuckets] = useState(true)
+    // Duration State
+    const minHours = property.min_duration_hours || 1
+    const maxHours = property.max_booking_duration_hours || 24
+    const [duration, setDuration] = useState(minHours)
+
+    // Generate options 
+    const durationOptions = Array.from({ length: maxHours - minHours + 1 }, (_, i) => minHours + i)
 
     const [plate, setPlate] = useState('')
     const [customerEmail, setCustomerEmail] = useState('')
@@ -57,66 +60,50 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
     const [isProcessing, setIsProcessing] = useState(false)
     const [checkingPrice, setCheckingPrice] = useState(false)
 
-    // Load buckets on mount
+    // Load price when duration or discount changes
     useEffect(() => {
-        const load = async () => {
-            const opts = await getParkingOptions(property.id)
-            setBuckets(opts)
-            setLoadingBuckets(false)
-            // Select first option by default? Or let user choose?
-            // Let's force user to choose (no default selection) so they see options.
+        const fetchPrice = async () => {
+            setCheckingPrice(true)
+            try {
+                const res = await getParkingPrice(property.id, duration, discountCode)
+                setPriceCents(res.amountCents)
+                if (res.discountApplied) {
+                    setAppliedDiscount({
+                        code: res.discountApplied.code,
+                        amount: res.discountAmountCents
+                    })
+                } else {
+                    setAppliedDiscount(null)
+                }
+            } catch (e) {
+                console.error(e)
+            } finally {
+                setCheckingPrice(false)
+            }
         }
-        load()
-    }, [property.id])
+
+        // Debounce slightly if needed, but for now direct call
+        const timer = setTimeout(fetchPrice, 300)
+        return () => clearTimeout(timer)
+    }, [property.id, duration, discountCode])
 
     // Helper for display
-    const currentDurationMinutes = selectedRule?.max_duration_minutes || 60
-    const clientTimeStr = useClientTime(currentDurationMinutes)
+    const clientTimeStr = useClientTime(duration * 60)
 
-    const handleSelectRule = async (rule: PricingRule) => {
-        setSelectedRule(rule)
-        setPriceCents(rule.amount_cents)
-        // Reset discount when rule changes because logic might differ (though usually discount applies to total)
-        // But we should re-check price if discount is active.
-        if (discountCode) {
-            setCheckingPrice(true)
-            await checkPrice(rule.id, discountCode)
-            setCheckingPrice(false)
-        } else {
-            setAppliedDiscount(null)
-            setPriceCents(rule.amount_cents)
-        }
-    }
+    // Removed handleSelectRule
 
-    const checkPrice = async (ruleId: string, code: string) => {
-        try {
-            const res = await getParkingPriceForRule(property.id, ruleId, code)
-
-            if (res.discountApplied) {
-                setPriceCents(res.amountCents)
-                setAppliedDiscount({
-                    code: res.discountApplied.code,
-                    amount: res.discountAmountCents
-                })
-            } else {
-                // Invalid code
-                setPriceCents(res.amountCents) // Reset to base
-                if (code) setAppliedDiscount(null)
-            }
-        } catch (e) {
-            console.error(e)
-        }
-    }
+    // Simplified checkPrice is now part of the effect, but we can keep a manual trigger if needed
+    // or just rely on the effect.
 
     // Step 1 -> 2
     const handleReview = async () => {
-        if (!selectedRule || !plate || !phone || !customerEmail || !termsAccepted) return
+        if (!plate || !phone || !customerEmail || !termsAccepted) return
 
         setIsProcessing(true)
         try {
             const result = await createParkingSession({
                 propertyId: property.id,
-                ruleId: selectedRule.id,
+                durationHours: duration, // We need to update createParkingSession to accept durationHours instead of/in addition to ruleId
                 plate,
                 customerEmail,
                 customerPhone: phone,
@@ -171,133 +158,103 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                             </div>
                         )}
 
-                        {/* PART 1: DURATION SELECTION */}
+                        {/* PART 1: DURATION SELECTION (ROLODEX STYLE) */}
                         <div>
                             <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-3 flex items-center gap-2">
                                 <span className="bg-matte-black text-signal-yellow w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
                                 Select Duration
                             </label>
 
-                            {loadingBuckets ? (
-                                <div className="space-y-3">
-                                    {[1, 2, 3].map(i => (
-                                        <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+                            <div className="relative h-48 bg-gray-50 rounded-xl overflow-hidden border-2 border-slate-outline">
+                                {/* Selection Indicator/Overlay */}
+                                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 bg-white/50 border-y-2 border-signal-yellow z-10 pointer-events-none flex items-center justify-between px-4">
+                                     <span className="text-xs font-bold text-signal-yellow uppercase tracking-wider bg-matte-black px-2 py-1 rounded">Selected</span>
+                                </div>
+
+                                <div className="h-full overflow-y-auto snap-y snap-mandatory py-[calc(50%-2rem)] hide-scrollbar">
+                                    {durationOptions.map(hrs => (
+                                        <div 
+                                            key={hrs}
+                                            className={twMerge(
+                                                "h-16 flex items-center justify-center snap-center transition-all duration-300 cursor-pointer",
+                                                duration === hrs ? "opacity-100 scale-110" : "opacity-40 scale-90"
+                                            )}
+                                            onClick={() => setDuration(hrs)}
+                                        >
+                                            <span className={twMerge(
+                                                "text-3xl font-bold font-mono",
+                                                duration === hrs ? "text-matte-black" : "text-gray-400"
+                                            )}>
+                                                {hrs} <span className="text-sm font-sans font-medium uppercase text-gray-500">Hours</span>
+                                            </span>
+                                        </div>
                                     ))}
                                 </div>
-                            ) : (
-                                <div className="grid grid-cols-1 gap-3">
-                                    {buckets.map(rule => {
-                                        const isSelected = selectedRule?.id === rule.id
-                                        return (
-                                            <button
-                                                key={rule.id}
-                                                onClick={() => handleSelectRule(rule)}
-                                                className={twMerge(
-                                                    "text-left p-4 rounded-xl border-2 transition-all duration-200 flex justify-between items-center group",
-                                                    isSelected
-                                                        ? "border-signal-yellow bg-yellow-50/50 shadow-md"
-                                                        : "border-slate-outline bg-white hover:border-slate-400"
-                                                )}
-                                            >
-                                                <div>
-                                                    <p className={twMerge(
-                                                        "font-bold text-lg",
-                                                        isSelected ? "text-slate-900" : "text-slate-700"
-                                                    )}>
-                                                        {rule.name ?? `${rule.max_duration_minutes} Minutes`}
-                                                    </p>
-                                                    {rule.description && (
-                                                        <p className="text-sm text-slate-500 mt-0.5">{rule.description}</p>
-                                                    )}
-                                                </div>
-                                                <div className="text-right">
-                                                    {rule.amount_cents === 0 ? (
-                                                        <span className="inline-block bg-green-100 text-green-700 font-bold px-3 py-1 rounded text-sm uppercase tracking-wide">
-                                                            Free
-                                                        </span>
-                                                    ) : (
-                                                        <span className={twMerge(
-                                                            "text-xl font-bold",
-                                                            isSelected ? "text-matte-black" : "text-slate-600"
-                                                        )}>
-                                                            ${(rule.amount_cents / 100).toFixed(2)}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </button>
-                                        )
-                                    })}
-
-                                    {buckets.length === 0 && (
-                                        <div className="text-center py-8 text-slate-500">
-                                            No parking options available.
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                
+                                {/* Gradient Fades */}
+                                <div className="absolute top-0 inset-x-0 h-12 bg-gradient-to-b from-gray-50 to-transparent pointer-events-none" />
+                                <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none" />
+                            </div>
                         </div>
 
-                        {selectedRule && (
-                            <>
-                                {/* PART 2: SUMMARY & PROMO */}
-                                <div className="bg-concrete-grey p-5 rounded-xl border border-slate-outline animate-in slide-in-from-bottom-2 fade-in duration-300 space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="bg-white p-2 rounded-md border border-slate-outline">
-                                                <Clock size={18} className="text-matte-black" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-gray-500 font-medium mb-0.5">Expires At</p>
-                                                <p className="font-mono font-bold text-matte-black">
-                                                    {clientTimeStr}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-xs font-bold text-gray-600 uppercase">Total</p>
-                                            {appliedDiscount ? (
-                                                <div>
-                                                    <p className="text-sm text-gray-400 line-through decoration-red-500">
-                                                        ${(selectedRule.amount_cents / 100).toFixed(2)}
-                                                    </p>
-                                                    <p className="text-2xl font-bold text-signal-yellow bg-matte-black px-2 rounded">
-                                                        ${(priceCents / 100).toFixed(2)}
-                                                    </p>
-                                                </div>
-                                            ) : (
-                                                <p className="text-2xl font-bold text-matte-black">
-                                                    {priceCents === 0 ? 'FREE' : `$${(priceCents / 100).toFixed(2)}`}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
 
-                                    {/* Promocode */}
-                                    <div className="flex gap-2 items-center pt-2 border-t border-slate-200">
-                                        <div className="relative flex-1">
-                                            <Tag className="absolute left-3 top-3 text-gray-500" size={16} />
-                                            <Input
-                                                placeholder="Promocode"
-                                                className="pl-9 h-10 text-sm uppercase text-matte-black font-medium bg-white"
-                                                value={discountCode}
-                                                onChange={e => setDiscountCode(e.target.value.toUpperCase().trim())}
-                                            />
-                                        </div>
-                                        <Button
-                                            variant="outline"
-                                            className="h-10 text-xs px-3 bg-white"
-                                            onClick={async () => {
-                                                if (!selectedRule) return
-                                                setCheckingPrice(true)
-                                                await checkPrice(selectedRule.id, discountCode)
-                                                setCheckingPrice(false)
-                                            }}
-                                            disabled={checkingPrice || !discountCode}
-                                        >
-                                            {checkingPrice ? '...' : 'Apply'}
-                                        </Button>
+                        {/* PART 2: SUMMARY & PROMO */}
+                        <div className="bg-concrete-grey p-5 rounded-xl border border-slate-outline animate-in slide-in-from-bottom-2 fade-in duration-300 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-white p-2 rounded-md border border-slate-outline">
+                                        <Clock size={18} className="text-matte-black" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 font-medium mb-0.5">Expires At</p>
+                                        <p className="font-mono font-bold text-matte-black">
+                                            {clientTimeStr}
+                                        </p>
                                     </div>
                                 </div>
+                                <div className="text-right">
+                                    <p className="text-xs font-bold text-gray-600 uppercase">Total</p>
+                                    {checkingPrice ? (
+                                        <div className="h-8 w-24 bg-gray-200 animate-pulse rounded" />
+                                    ) : appliedDiscount ? (
+                                        <div>
+                                            <p className="text-sm text-gray-400 line-through decoration-red-500">
+                                                 {/* We don't have base price easily available unless checkingPrice returns it, let's just show final */}
+                                                 {/* ${(selectedRule.amount_cents / 100).toFixed(2)} */}
+                                            </p>
+                                            <p className="text-2xl font-bold text-signal-yellow bg-matte-black px-2 rounded">
+                                                ${(priceCents / 100).toFixed(2)}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <p className="text-2xl font-bold text-matte-black">
+                                            {priceCents === 0 ? 'FREE' : `$${(priceCents / 100).toFixed(2)}`}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Promocode */}
+                            <div className="flex gap-2 items-center pt-2 border-t border-slate-200">
+                                <div className="relative flex-1">
+                                    <Tag className="absolute left-3 top-3 text-gray-500" size={16} />
+                                    <Input
+                                        placeholder="Promocode"
+                                        className="pl-9 h-10 text-sm uppercase text-matte-black font-medium bg-white"
+                                        value={discountCode}
+                                        onChange={e => setDiscountCode(e.target.value.toUpperCase().trim())}
+                                    />
+                                </div>
+                                {/* Auto-applies via effect, button is just visual feedback or force re-check */}
+                                <Button
+                                    variant="outline"
+                                    className="h-10 text-xs px-3 bg-white"
+                                    disabled={checkingPrice || !discountCode}
+                                >
+                                    {checkingPrice ? '...' : 'Applied'}
+                                </Button>
+                            </div>
+                        </div>
 
 
                                 {/* PART 3: VEHICLE & CONTACT DETAILS */}
@@ -375,13 +332,11 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                         </div>
                                     </div>
                                 </div>
-                            </>
-                        )}
 
                         <Button
                             onClick={handleReview}
                             className="w-full h-14 text-lg mt-4"
-                            disabled={!selectedRule || !plate || !phone || !customerEmail || !termsAccepted || isProcessing}
+                            disabled={!plate || !phone || !customerEmail || !termsAccepted || isProcessing}
                         >
                             {isProcessing ? (
                                 <div className="animate-spin w-5 h-5 border-2 border-matte-black/30 border-t-matte-black rounded-full" />
@@ -394,75 +349,75 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                     </div>
                 )}
 
-                {step === 2 && clientSecret && (
-                    <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                        <Button
-                            variant="outline"
-                            onClick={() => setStep(1)}
-                            className="mb-6 px-0 pl-2 pr-4 h-10 text-sm gap-2 text-gray-600"
-                        >
-                            <ArrowLeft size={16} /> Back to Details
-                        </Button>
+            {step === 2 && clientSecret && (
+                <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                    <Button
+                        variant="outline"
+                        onClick={() => setStep(1)}
+                        className="mb-6 px-0 pl-2 pr-4 h-10 text-sm gap-2 text-gray-600"
+                    >
+                        <ArrowLeft size={16} /> Back to Details
+                    </Button>
 
-                        <div className="bg-concrete-grey rounded-xl p-5 mb-6 border border-slate-outline">
-                            <h3 className="font-bold text-lg mb-4 text-matte-black border-b border-slate-200 pb-2">Order Summary</h3>
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-sm text-gray-600 font-medium">License Plate</span>
-                                    <span className="font-mono font-bold text-lg bg-white px-2 py-0.5 rounded border border-slate-outline">{plate}</span>
-                                </div>
-                                {unit && (
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm text-gray-600 font-medium">Location</span>
-                                        <span className="font-bold text-matte-black text-right">{unit.name}</span>
-                                    </div>
-                                )}
-                                <div className="flex justify-between items-center">
-                                    <span className="text-sm text-gray-600 font-medium">Duration</span>
-                                    <span className="font-bold text-right">{selectedRule?.name}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-sm text-gray-600 font-medium">Contact</span>
-                                    <span className="font-medium text-right text-sm">{customerEmail}</span>
-                                </div>
+                    <div className="bg-concrete-grey rounded-xl p-5 mb-6 border border-slate-outline">
+                        <h3 className="font-bold text-lg mb-4 text-matte-black border-b border-slate-200 pb-2">Order Summary</h3>
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-600 font-medium">License Plate</span>
+                                <span className="font-mono font-bold text-lg bg-white px-2 py-0.5 rounded border border-slate-outline">{plate}</span>
                             </div>
-
-                            <div className="mt-4 pt-4 border-t-2 border-slate-200 space-y-2">
-                                <div className="flex justify-between items-center text-slate-600">
-                                    <span className="text-sm font-medium">Parking Fee</span>
-                                    <span className="font-medium">${(priceCents / 100).toFixed(2)}</span>
+                            {unit && (
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-gray-600 font-medium">Location</span>
+                                    <span className="font-bold text-matte-black text-right">{unit.name}</span>
                                 </div>
-                                <div className="flex justify-between items-center text-slate-600">
-                                    <span className="text-sm font-medium">Service Fee</span>
-                                    <span className="font-medium">$1.00</span>
-                                </div>
-                                <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                                    <span className="font-bold text-lg text-gray-800">Total Due</span>
-                                    <span className="font-bold text-2xl text-matte-black">${((priceCents + 100) / 100).toFixed(2)}</span>
-                                </div>
+                            )}
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-600 font-medium">Duration</span>
+                                <span className="font-bold text-right">{duration} Hours</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-600 font-medium">Contact</span>
+                                <span className="font-medium text-right text-sm">{customerEmail}</span>
                             </div>
                         </div>
 
-                        <Elements stripe={stripePromise} options={{
-                            clientSecret,
-                            appearance: {
-                                theme: 'flat',
-                                variables: {
-                                    colorPrimary: '#121212',
-                                    colorBackground: '#ffffff',
-                                    colorText: '#121212',
-                                    colorDanger: '#DC2626',
-                                    fontFamily: 'Inter, system-ui, sans-serif',
-                                    borderRadius: '8px',
-                                }
-                            }
-                        }}>
-                            <CheckoutForm propertyId={property.id} />
-                        </Elements>
+                        <div className="mt-4 pt-4 border-t-2 border-slate-200 space-y-2">
+                            <div className="flex justify-between items-center text-slate-600">
+                                <span className="text-sm font-medium">Parking Fee</span>
+                                <span className="font-medium">${(priceCents / 100).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-slate-600">
+                                <span className="text-sm font-medium">Service Fee</span>
+                                <span className="font-medium">$1.00</span>
+                            </div>
+                            <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                                <span className="font-bold text-lg text-gray-800">Total Due</span>
+                                <span className="font-bold text-2xl text-matte-black">${((priceCents + 100) / 100).toFixed(2)}</span>
+                            </div>
+                        </div>
                     </div>
-                )}
-            </div>
+
+                    <Elements stripe={stripePromise} options={{
+                        clientSecret,
+                        appearance: {
+                            theme: 'flat',
+                            variables: {
+                                colorPrimary: '#121212',
+                                colorBackground: '#ffffff',
+                                colorText: '#121212',
+                                colorDanger: '#DC2626',
+                                fontFamily: 'Inter, system-ui, sans-serif',
+                                borderRadius: '8px',
+                            }
+                        }
+                    }}>
+                        <CheckoutForm propertyId={property.id} />
+                    </Elements>
+                </div>
+            )}
         </div>
+        </div >
     )
 }
 

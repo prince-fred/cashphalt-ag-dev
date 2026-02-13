@@ -42,6 +42,9 @@ export default async function PropertyPricingPage({ params }: { params: Promise<
                 propertyId={id}
                 rules={(rules as PricingRule[]) || []}
                 timezone={property.timezone}
+                minDuration={property.min_duration_hours}
+                maxDuration={property.max_booking_duration_hours}
+                hourlyRateCents={property.price_hourly_cents}
             />
         </div>
     )

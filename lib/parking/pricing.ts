@@ -63,8 +63,17 @@ export async function calculatePrice(
 
     // Fallback default price if no rule matches
     if (!matchedRule) {
-        // Fallback: $5/hr
-        const res = await applyDiscount(500 * durationHours, propertyId, discountCode)
+        // Fetch property base rate
+        const { data: property, error: propError } = await supabase
+            .from('properties')
+            .select('price_hourly_cents')
+            .eq('id', propertyId)
+            .single()
+
+        const hourlyRate = property?.price_hourly_cents || 500 // Default to $5 if not set
+        const baseAmount = Math.round(hourlyRate * durationHours)
+
+        const res = await applyDiscount(baseAmount, propertyId, discountCode)
         return {
             ...res,
             ruleApplied: null
@@ -96,8 +105,15 @@ export async function calculatePrice(
             }
         }
     } else {
-        // Fallback: $5/hr
-        baseAmountCents = 500 * durationHours
+        // Should not fully reach here due to early return above, but for safety:
+        const { data: property } = await supabase
+            .from('properties')
+            .select('price_hourly_cents')
+            .eq('id', propertyId)
+            .single()
+
+        const hourlyRate = property?.price_hourly_cents || 500
+        baseAmountCents = Math.round(hourlyRate * durationHours)
         selectedRule = null
     }
 

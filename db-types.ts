@@ -87,6 +87,7 @@ export type Database = {
                     logo_url: string | null
                     allocation_mode: 'ZONE' | 'SPOT'
                     max_booking_duration_hours: number
+                    min_duration_hours: number
                     timezone: string
                     qr_enabled: boolean
                     sms_enabled: boolean
@@ -104,6 +105,7 @@ export type Database = {
                     logo_url?: string | null
                     allocation_mode?: 'ZONE' | 'SPOT'
                     max_booking_duration_hours?: number
+                    min_duration_hours?: number
                     timezone?: string
                     qr_enabled?: boolean
                     sms_enabled?: boolean
@@ -121,6 +123,7 @@ export type Database = {
                     logo_url?: string | null
                     allocation_mode?: 'ZONE' | 'SPOT'
                     max_booking_duration_hours?: number
+                    min_duration_hours?: number
                     timezone?: string
                     qr_enabled?: boolean
                     sms_enabled?: boolean
@@ -255,7 +258,7 @@ export type Database = {
                 Update: {
                     id?: string
                     property_id?: string
-                    priority?: number
+                    priority: number
                     name?: string | null
                     description?: string | null
                     days_of_week?: number[] | null
@@ -351,7 +354,7 @@ export type Database = {
                     id?: string
                     session_id?: string
                     amount_cents?: number
-                    status?: string
+                    status: string
                     payment_intent_id?: string
                     created_at?: string
                 }
