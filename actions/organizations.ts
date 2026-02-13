@@ -205,3 +205,33 @@ export async function createStripeConnectAccountForSlug(slug: string) {
         return { url: null, error: message }
     }
 }
+
+export async function getStripeConnectAccountStatus(orgId: string) {
+    const supabase = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { data: org } = await supabase.from('organizations').select('stripe_connect_id').eq('id', orgId).single()
+
+    if (!org?.stripe_connect_id) {
+        return null
+    }
+
+    try {
+        const account = await stripe.accounts.retrieve(org.stripe_connect_id)
+        return {
+            id: account.id,
+            email: account.email,
+            charges_enabled: account.charges_enabled,
+            payouts_enabled: account.payouts_enabled,
+            details_submitted: account.details_submitted,
+            requirements: account.requirements,
+            type: account.type,
+        }
+    } catch (error) {
+        console.error("Error fetching Stripe account status:", error)
+        const err = error as { message?: string }
+        return { error: err.message || "Failed to fetch account status" }
+    }
+}

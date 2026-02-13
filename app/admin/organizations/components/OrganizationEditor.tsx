@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
-import { Database } from '@/db-types'
-import { upsertOrganization, deleteOrganization, createStripeConnectAccount } from '@/actions/organizations'
+import { upsertOrganization, deleteOrganization, createStripeConnectAccount, getStripeConnectAccountStatus } from '@/actions/organizations'
 import { useRouter } from 'next/navigation'
-import { Save, Trash2, CreditCard, ExternalLink } from 'lucide-react'
+import { Save, Trash2, CreditCard, ExternalLink, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useEffect, useState } from 'react'
+import { Database } from '@/db-types'
 
 type Organization = Database['public']['Tables']['organizations']['Row']
 
@@ -32,8 +32,9 @@ export function OrganizationEditor({ organization }: { organization?: Organizati
             toast.success('Organization saved successfully')
             router.push('/admin/organizations')
             router.refresh()
-        } catch (err: any) {
-            toast.error(err.message || 'Error saving organization')
+        } catch (err) {
+            const error = err as Error
+            toast.error(error.message || 'Error saving organization')
         } finally {
             setLoading(false)
         }
@@ -49,8 +50,9 @@ export function OrganizationEditor({ organization }: { organization?: Organizati
             toast.success('Organization deleted')
             router.push('/admin/organizations')
             router.refresh()
-        } catch (err: any) {
-            toast.error(err.message || 'Error deleting organization')
+        } catch (err) {
+            const error = err as Error
+            toast.error(error.message || 'Error deleting organization')
             setLoading(false)
         }
     }
@@ -64,8 +66,9 @@ export function OrganizationEditor({ organization }: { organization?: Organizati
         try {
             const { url } = await createStripeConnectAccount(organization.id)
             if (url) window.location.href = url
-        } catch (err: any) {
-            toast.error(err.message || "Failed to start Stripe onboarding")
+        } catch (err) {
+            const error = err as Error
+            toast.error(error.message || "Failed to start Stripe onboarding")
             setLoading(false)
         }
     }
@@ -119,25 +122,29 @@ export function OrganizationEditor({ organization }: { organization?: Organizati
                         {!organization?.id && <p className="text-xs text-orange-500 mt-1">Save organization first to connect Stripe.</p>}
 
                         {organization?.id && (
-                            <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                                <label className="block text-xs font-medium text-slate-500 mb-1">Shareable Connection Link</label>
-                                <div className="flex gap-2">
-                                    <code className="flex-1 bg-white px-2 py-1.5 rounded border border-slate-200 text-xs text-slate-600 truncate">
-                                        {typeof window !== 'undefined' ? `${window.location.origin}/connect/${organization.slug}` : `.../connect/${organization.slug}`}
-                                    </code>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const url = `${window.location.origin}/connect/${organization.slug}`
-                                            navigator.clipboard.writeText(url)
-                                            toast.success('Link copied to clipboard')
-                                        }}
-                                        className="text-indigo-600 hover:text-indigo-700 text-xs font-medium px-2 py-1.5 hover:bg-indigo-50 rounded transition-colors"
-                                    >
-                                        Copy
-                                    </button>
+                            <div className="mt-3 space-y-3">
+                                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                    <label className="block text-xs font-medium text-slate-500 mb-1">Shareable Connection Link</label>
+                                    <div className="flex gap-2">
+                                        <code className="flex-1 bg-white px-2 py-1.5 rounded border border-slate-200 text-xs text-slate-600 truncate">
+                                            {typeof window !== 'undefined' ? `${window.location.origin}/connect/${organization.slug}` : `.../connect/${organization.slug}`}
+                                        </code>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const url = `${window.location.origin}/connect/${organization.slug}`
+                                                navigator.clipboard.writeText(url)
+                                                toast.success('Link copied to clipboard')
+                                            }}
+                                            className="text-indigo-600 hover:text-indigo-700 text-xs font-medium px-2 py-1.5 hover:bg-indigo-50 rounded transition-colors"
+                                        >
+                                            Copy
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 mt-1">Share this link with the property owner to set up payouts.</p>
                                 </div>
-                                <p className="text-[10px] text-slate-400 mt-1">Share this link with the property owner to set up payouts.</p>
+
+                                <StripeStatusCard organization={organization} />
                             </div>
                         )}
                     </div>
@@ -185,6 +192,85 @@ export function OrganizationEditor({ organization }: { organization?: Organizati
                     <Save size={18} />
                     {loading ? 'Saving...' : 'Save Organization'}
                 </button>
+            </div>
+        </div>
+    )
+}
+
+function StripeStatusCard({ organization }: { organization: Organization }) {
+    const [status, setStatus] = useState<{
+        id: string;
+        email?: string | null;
+        charges_enabled: boolean;
+        payouts_enabled: boolean;
+        details_submitted: boolean;
+        requirements?: any;
+        type?: string;
+    } | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        const fetchStatus = async () => {
+            if (!organization.stripe_connect_id) {
+                setLoading(false)
+                return
+            }
+            try {
+                const data = await getStripeConnectAccountStatus(organization.id)
+                if (data?.error) throw new Error(data.error)
+                setStatus(data as any)
+            } catch (err) {
+                const error = err as Error
+                setError(error.message)
+            } finally {
+                setLoading(false)
+            }
+        }
+        fetchStatus()
+    }, [organization.id, organization.stripe_connect_id])
+
+    if (loading) return <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Checking Stripe status...</div>
+    if (error) return <div className="text-sm text-red-500 flex items-center gap-2"><AlertTriangle size={14} /> Failed to check status: {error}</div>
+    if (!status) return null
+
+    const isActive = status.charges_enabled && status.payouts_enabled
+    const isRestricted = !isActive && (status.requirements?.currently_due?.length > 0 || status.requirements?.past_due?.length > 0)
+
+    return (
+        <div className={`p-4 rounded-lg border ${isActive ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
+            <div className="flex items-center gap-2 mb-2">
+                {isActive ? <CheckCircle size={18} className="text-green-600" /> : <AlertTriangle size={18} className="text-yellow-600" />}
+                <h3 className={`font-medium ${isActive ? 'text-green-900' : 'text-yellow-900'}`}>
+                    {isActive ? 'Stripe Account Active' : (isRestricted ? 'Action Required' : 'Setup Incomplete')}
+                </h3>
+            </div>
+
+            <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                    <span className="text-slate-600">Charges Enabled:</span>
+                    <span className={status.charges_enabled ? 'text-green-600 font-medium' : 'text-red-500 font-medium'}>
+                        {status.charges_enabled ? 'Yes' : 'No'}
+                    </span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-slate-600">Payouts Enabled:</span>
+                    <span className={status.payouts_enabled ? 'text-green-600 font-medium' : 'text-red-500 font-medium'}>
+                        {status.payouts_enabled ? 'Yes' : 'No'}
+                    </span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-slate-600">Details Submitted:</span>
+                    <span className={status.details_submitted ? 'text-green-600 font-medium' : 'text-slate-500'}>
+                        {status.details_submitted ? 'Yes' : 'No'}
+                    </span>
+                </div>
+
+                {status.requirements?.currently_due?.length > 0 && (
+                    <div className="mt-2 text-xs text-yellow-800 bg-yellow-100 p-2 rounded">
+                        <strong>Missing Info:</strong> {status.requirements.currently_due.join(', ')}
+                    </div>
+                )}
             </div>
         </div>
     )
