@@ -1,7 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
-import dotenv from 'dotenv'
+import * as dotenv from 'dotenv'
 
 dotenv.config({ path: '.env.local' })
 
@@ -16,7 +16,7 @@ const supabase = createClient(
 )
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-    apiVersion: '2025-01-27.acacia',
+    apiVersion: '2025-12-15.clover',
 })
 
 async function checkOrgStatus(orgId: string) {
