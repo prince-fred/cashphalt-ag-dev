@@ -24,13 +24,14 @@ interface ExtensionFlowProps {
 }
 
 // Helper hook for hydration-safe time (reused from ParkingFlowForm logic)
-function useClientTime(durationMinutes: number) {
+function useClientTime(durationMinutes: number, baseTimeMs?: number) {
     const [timeStr, setTimeStr] = useState<string>('--:--')
 
     useEffect(() => {
-        const date = new Date(Date.now() + durationMinutes * 60 * 1000)
+        const start = baseTimeMs || Date.now()
+        const date = new Date(start + durationMinutes * 60 * 1000)
         setTimeStr(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
-    }, [durationMinutes])
+    }, [durationMinutes, baseTimeMs])
 
     return timeStr
 }
@@ -46,7 +47,10 @@ export function ExtensionFlow({ session, property }: ExtensionFlowProps) {
     const minHours = 1
     const maxHours = Math.min(24, property.max_booking_duration_hours)
 
-    const clientTimeStr = useClientTime(duration * 60)
+    // Calculate expiration based on current session end time
+    // @ts-ignore: end_time_current missing from generated types
+    const currentEndMs = new Date((session as any).end_time_current || session.end_time).getTime()
+    const clientTimeStr = useClientTime(duration * 60, currentEndMs)
 
     // Fetch Price Effect
     useEffect(() => {
@@ -209,7 +213,7 @@ export function ExtensionFlow({ session, property }: ExtensionFlowProps) {
                         clientSecret,
                         appearance: { theme: 'flat' }
                     }}>
-                        <ExtensionPaymentForm />
+                        <ExtensionPaymentForm session={session} duration={duration} />
                     </Elements>
                 </div>
             )}
@@ -217,7 +221,7 @@ export function ExtensionFlow({ session, property }: ExtensionFlowProps) {
     )
 }
 
-function ExtensionPaymentForm() {
+function ExtensionPaymentForm({ session, duration }: { session: Session, duration: number }) {
     const stripe = useStripe()
     const elements = useElements()
     const [msg, setMsg] = useState('')
@@ -225,13 +229,22 @@ function ExtensionPaymentForm() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!stripe || !elements) return
+
+        if (!stripe || !elements) {
+            return
+        }
+
         setIsProcessing(true)
+
+        // Calculate expected end to pass to success page (optimistic UI)
+        // @ts-ignore
+        const currentEndMs = new Date((session as any).end_time_current || session.end_time).getTime()
+        const expectedEndMs = currentEndMs + (duration * 60 * 60 * 1000)
 
         const { error } = await stripe.confirmPayment({
             elements,
             confirmParams: {
-                return_url: window.location.href + '/success',
+                return_url: window.location.href + `/success?expected_end=${expectedEndMs}`,
             }
         })
 

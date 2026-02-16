@@ -5,14 +5,16 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import Link from 'next/link'
 
+export const dynamic = 'force-dynamic'
+
 interface PageProps {
     params: Promise<{ sessionId: string }>
-    searchParams: Promise<{ payment_intent?: string, redirect_status?: string }>
+    searchParams: Promise<{ payment_intent?: string, redirect_status?: string, expected_end?: string }>
 }
 
 export default async function ExtensionSuccessPage({ params, searchParams }: PageProps) {
     const { sessionId } = await params
-    const { redirect_status } = await searchParams
+    const { redirect_status, expected_end } = await searchParams
     const supabase = await createClient()
 
     // Fetch session details
@@ -32,6 +34,18 @@ export default async function ExtensionSuccessPage({ params, searchParams }: Pag
     }
 
     const isSuccess = redirect_status === 'succeeded' || session.status === 'ACTIVE'
+
+    // Calculate display end time logic
+    let displayEndTime = new Date(session.end_time_current)
+
+    // If expected_end is provided in URL (from ExtensionFlow), use it if it's later than DB time
+    // This handles the webhook race condition optimistically
+    if (expected_end && !isNaN(parseInt(expected_end))) {
+        const expectedDate = new Date(parseInt(expected_end))
+        if (expectedDate.getTime() > displayEndTime.getTime()) {
+            displayEndTime = expectedDate
+        }
+    }
 
     return (
         <div className="min-h-screen bg-concrete-grey flex flex-col items-center justify-center p-4">
@@ -53,7 +67,7 @@ export default async function ExtensionSuccessPage({ params, searchParams }: Pag
                                     <span className="font-bold text-lg text-matte-black">New Expiry Time</span>
                                 </div>
                                 <p className="text-3xl font-bold text-matte-black font-mono">
-                                    {new Date(session.end_time_current).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                    {displayEndTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                                 </p>
                             </div>
 
