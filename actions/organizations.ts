@@ -89,9 +89,15 @@ export async function upsertOrganization(data: Partial<Organization>) {
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
+    // Sanitize empty strings to null for optional text fields
+    const sanitizedData = { ...data }
+    if (sanitizedData.stripe_connect_id === '') {
+        sanitizedData.stripe_connect_id = null
+    }
+
     const { data: inserted, error } = await supabase
         .from('organizations')
-        .upsert(data as any)
+        .upsert(sanitizedData as any)
         .select()
         .single()
 
