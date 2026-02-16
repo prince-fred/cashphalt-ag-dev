@@ -57,6 +57,13 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
     const [appliedDiscount, setAppliedDiscount] = useState<{ code: string, amount: number } | null>(null)
     const [isProcessing, setIsProcessing] = useState(false)
     const [checkingPrice, setCheckingPrice] = useState(false)
+    const [isCustomProduct, setIsCustomProduct] = useState(false)
+
+    // Reset Custom Product when duration is manually changed via stepper
+    const handleDurationChange = (newDuration: number) => {
+        setDuration(newDuration)
+        setIsCustomProduct(false)
+    }
 
     // Load price when duration or discount changes
     // Load price when duration changes (using currently applied discount)
@@ -66,7 +73,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
             try {
                 // Use the APPLIED discount, not the input text
                 const codeToUse = appliedDiscount?.code
-                const res = await getParkingPrice(property.id, duration, codeToUse)
+                const res = await getParkingPrice(property.id, duration, codeToUse, isCustomProduct)
                 setPriceCents(res.amountCents)
 
                 // If the duration change somehow invalidated the discount (unlikely but possible), sync state
@@ -87,7 +94,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
         }
 
         fetchPrice()
-    }, [property.id, duration, appliedDiscount?.code])
+    }, [property.id, duration, appliedDiscount?.code, isCustomProduct])
 
     const handleApplyPromo = async () => {
         if (!discountCode) return
@@ -132,8 +139,12 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                 customerEmail,
                 customerPhone: phone,
                 discountCode: appliedDiscount?.code,
-                unitId: unit?.id
+                unitId: unit?.id,
+                isCustomProduct
             })
+
+            // If we successfully get a clientSecret or free session, proceed
+            // Note: If isCustomProduct, createParkingSession handles duration calculation internally
 
             setPriceCents(result.amountCents)
 
@@ -192,8 +203,8 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                             <div className="flex items-center justify-between bg-gray-50 rounded-xl p-4 border-2 border-slate-outline">
                                 <Button
                                     variant="outline"
-                                    onClick={() => setDuration(prev => Math.max(minHours, prev - 1))}
-                                    disabled={duration <= minHours}
+                                    onClick={() => handleDurationChange(Math.max(minHours, duration - 1))}
+                                    disabled={duration <= minHours || isCustomProduct} // Disable if custom product selected? Or checking it deselects custom product (handled in wrapper)
                                     className="h-16 w-16 rounded-xl border-2 hover:bg-slate-200 shrink-0"
                                 >
                                     <Minus size={28} />
@@ -213,16 +224,55 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                     )}
                                 </div>
 
+
+
                                 <Button
                                     variant="outline"
-                                    onClick={() => setDuration(prev => Math.min(maxHours, prev + 1))}
-                                    disabled={duration >= maxHours}
+                                    onClick={() => handleDurationChange(Math.min(maxHours, duration + 1))}
+                                    disabled={duration >= maxHours || isCustomProduct}
                                     className="h-16 w-16 rounded-xl border-2 hover:bg-slate-200 shrink-0"
                                 >
                                     <Plus size={28} />
                                 </Button>
                             </div>
                         </div>
+
+                        {property.custom_product_enabled && (
+                            <div className="mt-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setIsCustomProduct(!isCustomProduct)
+                                        // If selecting, maybe reset duration visual? Or keep it?
+                                    }}
+                                    className={twMerge(
+                                        "w-full h-auto py-4 rounded-xl border-2 text-lg font-bold transition-all duration-300 relative overflow-hidden shadow-sm hover:shadow-md",
+                                        isCustomProduct
+                                            ? "border-matte-black bg-matte-black text-white hover:bg-matte-black/90 hover:text-white"
+                                            : "border-slate-outline bg-white text-matte-black hover:bg-slate-50 hover:border-slate-300"
+                                    )}
+                                >
+                                    <div className="flex flex-col items-center justify-center w-full gap-1">
+                                        <div className="flex items-center gap-2">
+                                            <span>{property.custom_product_name || 'Special Rate'}</span>
+                                            {isCustomProduct && <CheckCircle2 size={18} className="text-signal-yellow" />}
+                                        </div>
+                                        <span className={twMerge(
+                                            "text-xs font-normal",
+                                            isCustomProduct ? "text-gray-300" : "text-gray-500"
+                                        )}>
+                                            Ends at {property.custom_product_end_time?.slice(0, 5) || 'Unknown Time'}
+                                        </span>
+                                    </div>
+                                    <div className={twMerge(
+                                        "absolute right-4 top-1/2 -translate-y-1/2 px-2 py-0.5 rounded text-xs font-bold",
+                                        isCustomProduct ? "bg-signal-yellow text-matte-black" : "bg-slate-100 text-slate-600"
+                                    )}>
+                                        ${property.custom_product_price_cents ? (property.custom_product_price_cents / 100).toFixed(2) : '-.--'}
+                                    </div>
+                                </Button>
+                            </div>
+                        )}
 
 
                         {/* PART 2: SUMMARY & PROMO */}
@@ -235,7 +285,9 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                     <div>
                                         <p className="text-xs text-gray-500 font-medium mb-0.5">Expires At</p>
                                         <p className="font-mono font-bold text-matte-black">
-                                            {clientTimeStr}
+                                            {isCustomProduct && property.custom_product_end_time
+                                                ? property.custom_product_end_time.slice(0, 5)
+                                                : clientTimeStr}
                                         </p>
                                     </div>
                                 </div>
@@ -398,7 +450,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm text-gray-600 font-medium">License Plate</span>
-                                    <span className="font-mono font-bold text-lg bg-white px-2 py-0.5 rounded border border-slate-outline">{plate}</span>
+                                    <span className="font-mono font-bold text-lg bg-white px-2 py-0.5 rounded border border-slate-outline text-matte-black">{plate}</span>
                                 </div>
                                 {unit && (
                                     <div className="flex justify-between items-center">
@@ -408,11 +460,11 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                 )}
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm text-gray-600 font-medium">Duration</span>
-                                    <span className="font-bold text-right">{duration} Hours</span>
+                                    <span className="font-bold text-right text-matte-black">{duration} Hours</span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm text-gray-600 font-medium">Contact</span>
-                                    <span className="font-medium text-right text-sm">{customerEmail}</span>
+                                    <span className="font-medium text-right text-sm text-matte-black">{customerEmail}</span>
                                 </div>
                             </div>
 
@@ -446,7 +498,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                 }
                             }
                         }}>
-                            <CheckoutForm propertyId={property.id} />
+                            <CheckoutForm propertyId={property.id} propertySlug={property.slug} />
                         </Elements>
                     </div>
                 )}
@@ -455,7 +507,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
     )
 }
 
-function CheckoutForm({ propertyId }: { propertyId: string }) {
+function CheckoutForm({ propertyId, propertySlug }: { propertyId: string, propertySlug: string }) {
     const stripe = useStripe()
     const elements = useElements()
     const [msg, setMsg] = useState('')
@@ -470,7 +522,7 @@ function CheckoutForm({ propertyId }: { propertyId: string }) {
         const { error } = await stripe.confirmPayment({
             elements,
             confirmParams: {
-                return_url: `${window.location.origin}/pay/${propertyId}/success`,
+                return_url: `${window.location.origin}/pay/${propertySlug}/success`,
             }
         })
 

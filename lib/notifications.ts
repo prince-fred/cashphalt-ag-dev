@@ -23,9 +23,10 @@ interface SendReceiptParams {
     endTime: Date
     link: string // e.g. /pay/extend/[sessionId]
     timezone: string
+    type?: 'INITIAL' | 'EXTENSION'
 }
 
-export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName, unitName, amountCents, endTime, link, timezone }: SendReceiptParams) {
+export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName, unitName, amountCents, endTime, link, timezone, type = 'INITIAL' }: SendReceiptParams) {
     const formattedPrice = `$${(amountCents / 100).toFixed(2)}`
     const timeString = endTime.toLocaleTimeString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })
 
@@ -33,9 +34,17 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
 
     // 1. Send SMS (if provided and configured)
     if (toPhone && FROM_PHONE) {
-        let message = `Parking Granted: ${plate} at ${propertyName}`
+        let message = ''
+        if (type === 'EXTENSION') {
+            message = `Parking Extended: ${plate} at ${propertyName}`
+        } else {
+            message = `Parking Granted: ${plate} at ${propertyName}`
+        }
+
         if (unitName) message += ` (Spot: ${unitName})`
-        message += `.\nexpires at ${timeString}.`
+        message += `.\nExpires at ${timeString}.`
+        // Add link for easy extension? 
+        // message += `\nManage: ${link}`
 
         promises.push(
             twilioClient.messages.create({
@@ -49,13 +58,19 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
     // 2. Send Email
     if (toEmail) {
         console.log(`[Notification] Sending Email to ${toEmail}`)
+        const subject = type === 'EXTENSION'
+            ? `Parking Extended: ${plate}`
+            : `Parking Receipt: ${plate}`
+
+        const title = type === 'EXTENSION' ? 'Parking Extended' : 'Parking Confirmed'
+
         promises.push(
             resend.emails.send({
                 from: FROM_EMAIL,
                 to: toEmail,
-                subject: `Parking Receipt: ${plate}`,
+                subject: subject,
                 html: `
-                    <h1>Parking Confirmed</h1>
+                    <h1>${title}</h1>
                     <p><strong>Location:</strong> ${propertyName}</p>
                     ${unitName ? `<p><strong>Spot/Zone:</strong> ${unitName}</p>` : ''}
                     <p><strong>Plate:</strong> ${plate}</p>

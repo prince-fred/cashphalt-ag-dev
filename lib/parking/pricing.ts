@@ -18,7 +18,8 @@ export async function calculatePrice(
     startTime: Date,
     durationHours: number,
     discountCode?: string,
-    timezone?: string // Optional, if provided avoids extra fetch
+    timezone?: string, // Optional, if provided avoids extra fetch
+    isCustomProduct?: boolean
 ): Promise<PriceCalculationResult> {
     const supabase = await createClient()
 
@@ -55,6 +56,30 @@ export async function calculatePrice(
 
         if (error || !rulesData) throw new Error('Could not fetch pricing rules')
         rules = rulesData as PricingRule[]
+    }
+
+    // 1.5 Custom Product Logic
+    if (isCustomProduct) {
+        const { data: property, error: propError } = await supabase
+            .from('properties')
+            .select('custom_product_price_cents, custom_product_enabled')
+            .eq('id', propertyId)
+            .single()
+
+        if (propError || !property) {
+            throw new Error('Property not found')
+        }
+
+        if (!property.custom_product_enabled) {
+            throw new Error('Custom product is not enabled for this property')
+        }
+
+        const baseAmount = property.custom_product_price_cents || 0
+        const res = await applyDiscount(baseAmount, propertyId, discountCode)
+        return {
+            ...res,
+            ruleApplied: null
+        }
     }
 
     // 2. Base Price Calculation

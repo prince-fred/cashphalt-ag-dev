@@ -3,7 +3,8 @@
 import { createClient } from '@/utils/supabase/server'
 import { stripe } from '@/lib/stripe'
 import { calculatePrice, calculatePriceForRule } from '@/lib/parking/pricing'
-import { addMinutes } from 'date-fns'
+import { addMinutes, parse, isBefore, addDays, set, startOfDay } from 'date-fns'
+import { toZonedTime } from 'date-fns-tz'
 
 interface CreateSessionParams {
     propertyId: string
@@ -14,10 +15,24 @@ interface CreateSessionParams {
     customerPhone?: string
     discountCode?: string
     unitId?: string
+    isCustomProduct?: boolean
 }
 
-export async function createParkingSession({ propertyId, durationHours, ruleId, plate, customerEmail, customerPhone, discountCode, unitId }: CreateSessionParams) {
+export async function createParkingSession({ propertyId, durationHours, ruleId, plate, customerEmail, customerPhone, discountCode, unitId, isCustomProduct }: CreateSessionParams) {
     const supabase = await createClient()
+
+    // 0. Fetch Property & Org (Moved up)
+    const { data: property } = await (supabase
+        .from('properties') as any)
+        .select('*, organizations(*)')
+        .eq('id', propertyId)
+        .single()
+
+    if (!property) throw new Error("Property not found")
+
+    const org = property?.organizations
+    const platformFeePercent = org?.platform_fee_percent || 10
+    const stripeConnectId = org?.stripe_connect_id
 
     // 1. Calculate Price Authoritatively
     const startTime = new Date()
@@ -25,42 +40,72 @@ export async function createParkingSession({ propertyId, durationHours, ruleId, 
 
     if (ruleId) {
         priceResult = await calculatePriceForRule(propertyId, ruleId, discountCode)
-    } else if (durationHours) {
-        priceResult = await calculatePrice(propertyId, startTime, durationHours, discountCode)
+    } else if (durationHours || isCustomProduct) {
+        // Pass property timezone to avoid re-fetching
+        priceResult = await calculatePrice(propertyId, startTime, durationHours || 0, discountCode, property.timezone, isCustomProduct)
     } else {
-        throw new Error("Must provide either ruleId or durationHours")
+        throw new Error("Must provide either ruleId, durationHours, or isCustomProduct")
     }
 
     const { amountCents, ruleApplied, discountApplied, discountAmountCents } = priceResult
 
     // Determine duration
     let finalDurationMinutes = 0
-    if (ruleApplied?.max_duration_minutes) {
+    let endTimeInitial: Date;
+
+    if (isCustomProduct && property.custom_product_end_time) {
+        // Custom Product Logic
+        // Calculate end time based on property.custom_product_end_time (HH:MM:SS)
+        // We need to do this in the PROPERTY TIMEZONE to be accurate regarding "tomorrow" vs "today"
+        const zonedNow = toZonedTime(startTime, property.timezone)
+        const targetTime = parse(property.custom_product_end_time, 'HH:mm:ss', zonedNow)
+
+        // If target time is earlier than now (e.g. Now 2PM, Target 11AM), it implies tomorrow.
+        // If target time is later than now (e.g. Now 9AM, Target 11AM), it implies today.
+        // BUT "Overnight" usually implies "Until next morning". 
+        // If the custom product is "Event until 10PM" and it's 2PM, it's today.
+        // If the custom product is "Overnight until 8AM" and it's 2PM, it's tomorrow.
+
+        // Simple logic: If target > now, today. If target < now, tomorrow.
+        // Is this always true?
+        // Case: Overnight until 8AM. Now is 11PM. Target 8AM (today) is < Now. So tomorrow. Correct.
+        // Case: Event until 10PM. Now is 2PM. Target 10PM (today) is > Now. So today. Correct.
+        // Case: Morning Parking until 12PM. Now is 1PM. Target < Now. Tomorrow? Maybe. 
+        // We will stick to this logic as it covers the requested "Overnight" use case and standard events.
+
+        let targetEnd = targetTime
+        if (isBefore(targetEnd, zonedNow)) {
+            targetEnd = addDays(targetEnd, 1)
+        }
+
+        // Calculate minutes difference
+        const diffMs = targetEnd.getTime() - zonedNow.getTime()
+        finalDurationMinutes = Math.ceil(diffMs / (1000 * 60))
+
+        // For the session record, we should probably store UTC times, but we calculated duration.
+        // endTimeInitial should be startTime + duration.
+        endTimeInitial = addMinutes(startTime, finalDurationMinutes)
+
+    } else if (ruleApplied?.max_duration_minutes) {
         finalDurationMinutes = ruleApplied.max_duration_minutes
+        endTimeInitial = addMinutes(startTime, finalDurationMinutes)
     } else if (durationHours) {
         finalDurationMinutes = durationHours * 60
+        endTimeInitial = addMinutes(startTime, finalDurationMinutes)
     } else {
         // Fallback or Error
-        finalDurationMinutes = 60 // Should not happen if validation is good
+        finalDurationMinutes = 60
+        endTimeInitial = addMinutes(startTime, finalDurationMinutes)
     }
 
-    // 1.5 Fetch Property & Org for Payouts
-    const { data: property } = await (supabase
-        .from('properties') as any)
-        .select('*, organizations(*)')
-        .eq('id', propertyId)
-        .single()
-
-    const org = property?.organizations
-    const platformFeePercent = org?.platform_fee_percent || 10
-    const stripeConnectId = org?.stripe_connect_id
-
     // 2. Create Session in DB
+
+
     const SERVICE_FEE_CENTS = 100
     // If base price > 0, we add service fee. If free, no fee.
     const finalAmountCents = amountCents > 0 ? amountCents + SERVICE_FEE_CENTS : 0
 
-    const endTimeInitial = addMinutes(startTime, finalDurationMinutes)
+
 
     // If free, status is ACTIVE immediately
     const initialStatus = finalAmountCents === 0 ? 'ACTIVE' : 'PENDING_PAYMENT'

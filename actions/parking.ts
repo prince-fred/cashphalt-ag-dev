@@ -6,9 +6,9 @@ import { Database } from '@/db-types'
 
 type PricingRule = Database['public']['Tables']['pricing_rules']['Row']
 
-export async function getParkingPrice(propertyId: string, durationHours: number, discountCode?: string) {
+export async function getParkingPrice(propertyId: string, durationHours: number, discountCode?: string, isCustomProduct?: boolean) {
     const startTime = new Date()
-    return calculatePrice(propertyId, startTime, durationHours, discountCode)
+    return calculatePrice(propertyId, startTime, durationHours, discountCode, undefined, isCustomProduct)
 }
 
 export async function getParkingPriceForRule(propertyId: string, ruleId: string, discountCode?: string) {

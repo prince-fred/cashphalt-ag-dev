@@ -90,7 +90,13 @@ export default async function SuccessPage({
                         </Link>
                     )}
 
-                    <Link href={`/pay/${propertyId}`} className="block w-full">
+                    <Link
+                        href={
+                            // @ts-ignore
+                            `/pay/${session?.properties?.slug || propertyId}${session?.spot_id ? `?unit=${session.spot_id}` : ''}`
+                        }
+                        className="block w-full"
+                    >
                         <Button className="w-full text-lg h-14 bg-white text-matte-black border-2 border-slate-200 hover:bg-gray-50" variant="outline">
                             Book Another Session
                         </Button>

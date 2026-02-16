@@ -92,6 +92,10 @@ export type Database = {
                     qr_enabled: boolean
                     sms_enabled: boolean
                     created_at: string
+                    custom_product_name: string | null
+                    custom_product_end_time: string | null
+                    custom_product_price_cents: number | null
+                    custom_product_enabled: boolean
                 }
                 Insert: {
                     id?: string
@@ -110,6 +114,10 @@ export type Database = {
                     qr_enabled?: boolean
                     sms_enabled?: boolean
                     created_at?: string
+                    custom_product_name?: string | null
+                    custom_product_end_time?: string | null
+                    custom_product_price_cents?: number | null
+                    custom_product_enabled?: boolean
                 }
                 Update: {
                     id?: string
@@ -128,6 +136,10 @@ export type Database = {
                     qr_enabled?: boolean
                     sms_enabled?: boolean
                     created_at?: string
+                    custom_product_name?: string | null
+                    custom_product_end_time?: string | null
+                    custom_product_price_cents?: number | null
+                    custom_product_enabled?: boolean
                 }
                 Relationships: [
                     {

@@ -62,12 +62,36 @@ export async function extendSession({ sessionId, durationHours }: ExtendSessionP
         })
     }
 
-    // 5. Handle Payment (or Free)
-    // Stripe minimum is $0.50 usually.
-    if (amountCents < 50) {
+    // 5. Calculate Fees & Splits
+    const SERVICE_FEE_CENTS = 100
+    // Final Amount = Parking Rate + Service Fee
+    // If original amount was 0 (free extension), we might still charge service fee? 
+    // Usually extensions are paid. If amountCents is 0, let's keep it free (no service fee).
+    const finalAmountCents = amountCents > 0 ? amountCents + SERVICE_FEE_CENTS : 0
+
+    // Fetch Org Details for Split
+    // We already joined properties, but need organization details which might not be in the join
+    // Let's fetch property -> org relation
+    const { data: property } = await (supabase
+        .from('properties') as any)
+        .select(`
+            organizations (
+                stripe_connect_id,
+                platform_fee_percent
+            )
+        `)
+        .eq('id', session.property_id)
+        .single()
+
+    const org = property?.organizations
+    const platformFeePercent = org?.platform_fee_percent || 10
+    const stripeConnectId = org?.stripe_connect_id
+
+    // 6. Handle Payment (or Free)
+    // Stripe minimum is $0.50. current finalAmountCents includes $1.00 service fee if > 0.
+    if (finalAmountCents < 50) {
         // FREE Extension / Below Stripe Limit -> Grant immediately
-        // Log warning if it was supposed to be paid but calculated low? 
-        if (amountCents > 0) console.warn(`Extension amount ${amountCents} is below Stripe min. Treating as free.`)
+        if (amountCents > 0) console.warn(`Extension amount ${finalAmountCents} is below Stripe min. Treating as free.`)
 
         const { error: updateError } = await (supabase
             .from('sessions') as any)
@@ -103,7 +127,8 @@ export async function extendSession({ sessionId, durationHours }: ExtendSessionP
             amountCents: 0,
             endTime: newEnd,
             link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://cashphalt.com'}/pay/extend/${sessionId}`,
-            timezone: propertyTimezone || 'UTC'
+            timezone: propertyTimezone || 'UTC',
+            type: 'EXTENSION'
         }).catch(err => console.error('Failed to send free extension receipt:', err))
 
         return {
@@ -114,9 +139,12 @@ export async function extendSession({ sessionId, durationHours }: ExtendSessionP
         }
     }
 
-    // 6. Create Payment Intent
-    const paymentIntent = await stripe.paymentIntents.create({
-        amount: amountCents,
+    // 7. Create Payment Intent
+    const platformShare = Math.round(amountCents * (platformFeePercent / 100))
+    const totalApplicationFee = SERVICE_FEE_CENTS + platformShare
+
+    const paymentIntentParams: any = {
+        amount: finalAmountCents,
         currency: 'usd',
         metadata: {
             sessionId: session.id,
@@ -125,11 +153,26 @@ export async function extendSession({ sessionId, durationHours }: ExtendSessionP
             durationHours: durationHours.toString()
         },
         automatic_payment_methods: { enabled: true }
-    })
+    }
+
+    // Add Connect logic if ID exists
+    if (stripeConnectId) {
+        console.log(`[Extension] Creating PaymentIntent with Connect ID: ${stripeConnectId}`)
+        console.log(`[Extension] Application Fee: ${totalApplicationFee} (Service: ${SERVICE_FEE_CENTS}, Platform Share: ${platformShare})`)
+        paymentIntentParams.application_fee_amount = totalApplicationFee
+        paymentIntentParams.transfer_data = {
+            destination: stripeConnectId,
+        }
+    } else {
+        console.log('[Extension] Creating PaymentIntent WITHOUT Connect ID (Platform only)')
+        // Fallback: Platform keeps everything (Service Fee + Parking Rate)
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams)
 
     return {
         clientSecret: paymentIntent.client_secret,
-        amountCents,
+        amountCents: finalAmountCents, // Return the TOTAL amount the user needs to pay
         newEndTime: newEnd.toISOString()
     }
 }

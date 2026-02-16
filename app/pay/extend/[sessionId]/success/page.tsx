@@ -50,7 +50,7 @@ export default async function ExtensionSuccessPage({ params, searchParams }: Pag
                             <div className="bg-concrete-grey p-6 rounded-xl border border-slate-outline mt-4">
                                 <div className="flex items-center justify-center gap-2 mb-2">
                                     <Clock size={20} className="text-matte-black" />
-                                    <span className="font-bold text-lg">New Expiry Time</span>
+                                    <span className="font-bold text-lg text-matte-black">New Expiry Time</span>
                                 </div>
                                 <p className="text-3xl font-bold text-matte-black font-mono">
                                     {new Date(session.end_time_current).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
