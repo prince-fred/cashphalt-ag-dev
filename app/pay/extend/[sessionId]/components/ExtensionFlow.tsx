@@ -24,14 +24,14 @@ interface ExtensionFlowProps {
 }
 
 // Helper hook for hydration-safe time (reused from ParkingFlowForm logic)
-function useClientTime(durationMinutes: number, baseTimeMs?: number) {
+function useClientTime(durationMinutes: number, timezone: string, baseTimeMs?: number) {
     const [timeStr, setTimeStr] = useState<string>('--:--')
 
     useEffect(() => {
         const start = baseTimeMs || Date.now()
         const date = new Date(start + durationMinutes * 60 * 1000)
-        setTimeStr(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
-    }, [durationMinutes, baseTimeMs])
+        setTimeStr(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: timezone }))
+    }, [durationMinutes, timezone, baseTimeMs])
 
     return timeStr
 }
@@ -50,7 +50,7 @@ export function ExtensionFlow({ session, property }: ExtensionFlowProps) {
     // Calculate expiration based on current session end time
     // @ts-ignore: end_time_current missing from generated types
     const currentEndMs = new Date((session as any).end_time_current || session.end_time).getTime()
-    const clientTimeStr = useClientTime(duration * 60, currentEndMs)
+    const clientTimeStr = useClientTime(duration * 60, property.timezone, currentEndMs)
 
     // Fetch Price Effect
     useEffect(() => {

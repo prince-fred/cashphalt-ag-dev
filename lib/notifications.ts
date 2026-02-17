@@ -24,11 +24,14 @@ interface SendReceiptParams {
     link: string // e.g. /pay/extend/[sessionId]
     timezone: string
     type?: 'INITIAL' | 'EXTENSION'
+    allocationMode?: 'ZONE' | 'SPOT'
 }
 
-export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName, unitName, amountCents, endTime, link, timezone, type = 'INITIAL' }: SendReceiptParams) {
+export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName, unitName, amountCents, endTime, link, timezone, type = 'INITIAL', allocationMode = 'SPOT' }: SendReceiptParams) {
     const formattedPrice = `$${(amountCents / 100).toFixed(2)}`
     const timeString = endTime.toLocaleTimeString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })
+    const dateString = endTime.toLocaleDateString('en-US', { timeZone: timezone, weekday: 'short', month: 'short', day: 'numeric' })
+    const dateTimeString = `${dateString} at ${timeString}`
 
     const promises = []
 
@@ -41,8 +44,9 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
             message = `Parking Granted: ${plate} at ${propertyName}`
         }
 
-        if (unitName) message += ` (Spot: ${unitName})`
-        message += `.\nExpires at ${timeString}.`
+        const unitLabel = allocationMode === 'ZONE' ? 'Zone' : 'Spot'
+        if (unitName) message += ` (${unitLabel}: ${unitName})`
+        message += `.\nExpires: ${dateTimeString}.\nExtend: ${link}`
         // Add link for easy extension? 
         // message += `\nManage: ${link}`
 
@@ -72,7 +76,7 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
                 html: `
                     <h1>${title}</h1>
                     <p><strong>Location:</strong> ${propertyName}</p>
-                    ${unitName ? `<p><strong>Spot/Zone:</strong> ${unitName}</p>` : ''}
+                    ${unitName ? `<p><strong>${allocationMode === 'ZONE' ? 'Zone' : 'Spot'}:</strong> ${unitName}</p>` : ''}
                     <p><strong>Plate:</strong> ${plate}</p>
                     <p><strong>Total:</strong> ${formattedPrice}</p>
                     <p><strong>Expires:</strong> ${timeString}</p>
@@ -84,15 +88,18 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
     await Promise.all(promises)
 }
 
-export async function sendExpiryWarning({ toEmail, toPhone, plate, propertyName, unitName, expireTime, link, timezone }: { toEmail?: string | null, toPhone?: string | null, plate: string, propertyName: string, unitName?: string | null, expireTime: Date, link: string, timezone: string }) {
+export async function sendExpiryWarning({ toEmail, toPhone, plate, propertyName, unitName, expireTime, link, timezone, allocationMode = 'SPOT' }: { toEmail?: string | null, toPhone?: string | null, plate: string, propertyName: string, unitName?: string | null, expireTime: Date, link: string, timezone: string, allocationMode?: 'ZONE' | 'SPOT' }) {
     const timeString = expireTime.toLocaleTimeString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })
+    const dateString = expireTime.toLocaleDateString('en-US', { timeZone: timezone, weekday: 'short', month: 'short', day: 'numeric' })
+    const dateTimeString = `${dateString} at ${timeString}`
     const promises = []
 
     // SMS
     if (toPhone && FROM_PHONE) {
         let message = `⚠️ Parking Expiring Soon!\nLic: ${plate}\nLoc: ${propertyName}`
-        if (unitName) message += ` (Spot: ${unitName})`
-        message += `\nExpires: ${timeString}\nExtend now: ${link}`
+        const unitLabel = allocationMode === 'ZONE' ? 'Zone' : 'Spot'
+        if (unitName) message += ` (${unitLabel}: ${unitName})`
+        message += `\nExpires: ${dateTimeString}\nExtend now: ${link}`
 
         promises.push(
             twilioClient.messages.create({
@@ -113,7 +120,7 @@ export async function sendExpiryWarning({ toEmail, toPhone, plate, propertyName,
                 subject: `Action Required: Parking Expiring Soon (${plate})`,
                 html: `
                     <h1>Parking Expiring Soon</h1>
-                    <p>Your parking session at <strong>${propertyName}</strong> ${unitName ? `(Spot: <strong>${unitName}</strong>) ` : ''}for vehicle <strong>${plate}</strong> is about to expire.</p>
+                    <p>Your parking session at <strong>${propertyName}</strong> ${unitName ? `(${allocationMode === 'ZONE' ? 'Zone' : 'Spot'}: <strong>${unitName}</strong>) ` : ''}for vehicle <strong>${plate}</strong> is about to expire.</p>
                     <p style="font-size: 18px; font-weight: bold; color: #DC2626;">Expires at: ${timeString}</p>
                     <br/>
                     <a href="${link}" style="background-color: #000; color: #FFD700; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Extend Session Now</a>

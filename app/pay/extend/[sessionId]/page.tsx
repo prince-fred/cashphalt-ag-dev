@@ -52,13 +52,13 @@ export default async function ExtensionPage({ params }: PageProps) {
                     <div className="mb-6 bg-blue-50 border border-blue-100 p-4 rounded-lg text-center">
                         <p className="text-xs text-blue-600 font-bold uppercase tracking-wider mb-1">Current Expiry</p>
                         <p className="text-2xl font-bold text-slate-900">
-                            {new Date(session.end_time_current).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                            {new Date(session.end_time_current).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone: property.timezone })}
                         </p>
                     </div>
 
                     <ExtensionFlow session={session} property={property} />
                 </Card>
-            </div>
-        </div>
+            </div >
+        </div >
     )
 }

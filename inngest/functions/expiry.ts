@@ -25,7 +25,7 @@ export const sendExpiryWarnings = inngest.createFunction(
 
             const { data, error } = await (supabase
                 .from("sessions") as any)
-                .select("*, properties(name, timezone)")
+                .select("*, properties(name, timezone, allocation_mode)")
                 .eq("status", "ACTIVE")
                 .gte("end_time_current", windowStart.toISOString())
                 .lte("end_time_current", windowEnd.toISOString())
@@ -72,7 +72,8 @@ export const sendExpiryWarnings = inngest.createFunction(
                     unitName,
                     expireTime: new Date(session.end_time_current),
                     link,
-                    timezone
+                    timezone,
+                    allocationMode: (session.properties as any)?.allocation_mode || 'SPOT'
                 });
 
                 // Mark as sent to prevent duplicates
