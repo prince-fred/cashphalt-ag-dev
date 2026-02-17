@@ -312,3 +312,58 @@ export async function sendPasswordReset(email: string) {
 
     return { success: true }
 }
+
+export async function inspectUserAndProperty(propertyId: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error("Not authenticated")
+
+    // Get User Profile
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+    // Get Property via Admin Client to bypass RLS potentially preventing lookup
+    const admin = getAdminClient()
+    const { data: property, error: propError } = await admin
+        .from('properties')
+        .select('*')
+        .eq('id', propertyId)
+        .single()
+
+    if (propError || !property) throw new Error("Property not found")
+
+    return {
+        user: profile,
+        property: property,
+        match: profile?.organization_id === property.organization_id
+    }
+}
+
+export async function fixUserForProperty(propertyId: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error("Not authenticated")
+
+    const admin = getAdminClient()
+    const { data: property, error: propError } = await admin
+        .from('properties')
+        .select('organization_id')
+        .eq('id', propertyId)
+        .single()
+
+    if (propError || !property) throw new Error("Property not found")
+
+    // Update user's org to match property
+    const { error: updateError } = await admin
+        .from('profiles')
+        .update({ organization_id: property.organization_id })
+        .eq('id', user.id)
+
+    if (updateError) throw new Error(`Failed to update profile: ${updateError.message}`)
+
+    revalidatePath('/admin/debug')
+    return { success: true }
+}

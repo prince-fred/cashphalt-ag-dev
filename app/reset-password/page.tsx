@@ -63,18 +63,18 @@ export default function ResetPasswordPage() {
                             placeholder="******"
                         />
                     </div>
-            </div>
 
-            <div>
-                <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isLoading}
-                >
-                    {isLoading ? 'Updating...' : 'Update Password'}
-                </Button>
-            </div>
-        </form>
+
+                    <div>
+                        <Button
+                            type="submit"
+                            className="w-full"
+                            disabled={isLoading}
+                        >
+                            {isLoading ? 'Updating...' : 'Update Password'}
+                        </Button>
+                    </div>
+                </form>
             </div >
         </div >
     )
