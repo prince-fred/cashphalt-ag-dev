@@ -4,6 +4,7 @@
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { Database } from '@/db-types'
 import { stripe } from '@/lib/stripe'
+import { revalidatePath } from 'next/cache'
 
 type Organization = Database['public']['Tables']['organizations']['Row']
 
@@ -105,6 +106,7 @@ export async function upsertOrganization(data: Partial<Organization>) {
         throw new Error(error.message)
     }
 
+    revalidatePath('/admin/organizations')
     return { success: true, data: inserted }
 }
 
@@ -120,6 +122,7 @@ export async function deleteOrganization(id: string) {
         throw new Error(error.message)
     }
 
+    revalidatePath('/admin/organizations')
     return { success: true }
 }
 
