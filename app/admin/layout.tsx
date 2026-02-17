@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { LayoutDashboard, Building2, Ticket, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Building2, Ticket, Settings, LogOut, ShieldCheck as Shield, Users, Activity } from 'lucide-react'
 
 export default function AdminLayout({
     children,
@@ -37,6 +37,13 @@ export default function AdminLayout({
                         Overview
                     </Link>
                     <Link
+                        href="/admin/operations"
+                        className="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-all font-medium"
+                    >
+                        <Activity size={20} />
+                        Operations
+                    </Link>
+                    <Link
                         href="/admin/properties"
                         className="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-all font-medium"
                     >
@@ -56,6 +63,20 @@ export default function AdminLayout({
                     >
                         <Ticket size={20} />
                         Sessions
+                    </Link>
+                    <Link
+                        href="/admin/enforcement"
+                        className="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-all font-medium"
+                    >
+                        <Shield size={20} />
+                        Enforcement
+                    </Link>
+                    <Link
+                        href="/admin/users"
+                        className="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-all font-medium"
+                    >
+                        <Users size={20} />
+                        Team
                     </Link>
                     <Link
                         href="/admin/settings"

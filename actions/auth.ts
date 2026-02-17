@@ -2,7 +2,36 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
+
+export async function updatePassword(formData: FormData) {
+    const password = formData.get('password') as string
+    const confirmPassword = formData.get('confirmPassword') as string
+
+    if (!password) {
+        return { error: 'Password is required' }
+    }
+
+    if (password.length < 6) {
+        return { error: 'Password must be at least 6 characters' }
+    }
+
+    if (password !== confirmPassword) {
+        return { error: 'Passwords do not match' }
+    }
+
+    const supabase = await createClient()
+
+    const { error } = await supabase.auth.updateUser({
+        password: password
+    })
+
+    if (error) {
+        return { error: error.message }
+    }
+
+    return { success: true }
+    return { success: true }
+}
 
 export async function signIn(formData: FormData) {
     const email = formData.get('email') as string
@@ -21,14 +50,7 @@ export async function signIn(formData: FormData) {
     return { success: true }
 }
 
-export async function signOut() {
-    const supabase = await createClient()
-    await supabase.auth.signOut()
-    return redirect('/login')
-}
-
 export async function signUp(formData: FormData) {
-    const origin = (await headers()).get('origin')
     const email = formData.get('email') as string
     const password = formData.get('password') as string
     const supabase = await createClient()
@@ -37,7 +59,7 @@ export async function signUp(formData: FormData) {
         email,
         password,
         options: {
-            emailRedirectTo: `${origin}/auth/callback`,
+            emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
         },
     })
 
@@ -45,5 +67,11 @@ export async function signUp(formData: FormData) {
         return { error: error.message }
     }
 
-    return { success: true, message: 'Check email to continue sign in process' }
+    return { success: true }
+}
+
+export async function signOut() {
+    const supabase = await createClient()
+    await supabase.auth.signOut()
+    redirect('/login')
 }

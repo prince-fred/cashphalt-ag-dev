@@ -12,7 +12,77 @@ type Property = Database['public']['Tables']['properties']['Row']
 
 export async function getProperties() {
     const supabase = await createClient()
-    const { data } = await (supabase.from('properties') as any).select('*').order('created_at', { ascending: false })
+    const { data: { user } } = await supabase.auth.getUser()
+
+    console.log('[getProperties] Start')
+
+    if (!user) {
+        console.log('[getProperties] No user found')
+        return []
+    }
+    console.log('[getProperties] User ID:', user.id)
+
+    // Fetch user profile to get role and organization
+    const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+    if (profileError) {
+        console.error('[getProperties] Profile fetch error:', profileError)
+    }
+
+    if (!profile) {
+        console.log('[getProperties] No profile found for user')
+        return []
+    }
+
+    console.log('[getProperties] Profile Role:', profile.role, 'Org:', profile.organization_id)
+
+    let query = (supabase.from('properties') as any).select('*').order('created_at', { ascending: false })
+
+    if (profile.role === 'admin') {
+        // Admin sees all
+        console.log('[getProperties] Role is admin, fetching all')
+    } else if (profile.role === 'property_owner') {
+        // Owner sees properties in their org
+        if (profile.organization_id) {
+            console.log('[getProperties] Role is owner, fetching for org:', profile.organization_id)
+            query = query.eq('organization_id', profile.organization_id)
+        } else {
+            console.log('[getProperties] Owner has no org')
+            return [] // Owner with no org sees nothing
+        }
+    } else if (profile.role === 'staff') {
+        // Staff sees assigned properties
+        // We need to fetch assigned property IDs first
+        const { data: assignments } = await supabase
+            .from('property_members')
+            .select('property_id')
+            .eq('user_id', user.id)
+
+        const propertyIds = assignments?.map((a: any) => a.property_id) || []
+        console.log('[getProperties] Staff assigned IDs:', propertyIds)
+
+        if (propertyIds.length > 0) {
+            query = query.in('id', propertyIds)
+        } else {
+            return [] // Staff with no assignments sees nothing
+        }
+    } else {
+        // Unknown role or no role
+        console.log('[getProperties] Unknown role:', profile.role)
+        return []
+    }
+
+    const { data, error: propError } = await query
+
+    if (propError) {
+        console.error('[getProperties] Property query error:', JSON.stringify(propError, null, 2))
+    }
+
+    console.log('[getProperties] Returning count:', data?.length)
     return (data || []) as Property[]
 }
 

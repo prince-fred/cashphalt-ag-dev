@@ -9,10 +9,36 @@ type SessionWithProperty = Database['public']['Tables']['sessions']['Row'] & {
 
 export async function getSessions() {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // Fetch sessions with property details
-    // We use a join here assuming foreign key is set up correctly
-    const { data, error } = await (supabase.from('sessions') as any)
+    if (!user) return []
+
+    // Fetch user profile
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+    // Determine filters
+    let propertyIds: string[] | null = null
+
+    if (profile?.role === 'admin') {
+        propertyIds = null
+    } else if (profile?.role === 'property_owner') {
+        if (!profile.organization_id) return []
+        const { data: props } = await supabase.from('properties').select('id').eq('organization_id', profile.organization_id)
+        propertyIds = props?.map(p => p.id) || []
+    } else if (profile?.role === 'staff') {
+        const { data: assignments } = await supabase.from('property_members').select('property_id').eq('user_id', user.id)
+        propertyIds = assignments?.map(a => a.property_id) || []
+    } else {
+        return []
+    }
+
+    if (propertyIds !== null && propertyIds.length === 0) return []
+
+    let query = (supabase.from('sessions') as any)
         .select(`
             *,
             properties (
@@ -22,12 +48,17 @@ export async function getSessions() {
         `)
         .order('created_at', { ascending: false })
 
+    if (propertyIds !== null) {
+        query = query.in('property_id', propertyIds)
+    }
+
+    const { data, error } = await query
+
     if (error) {
         console.error('Error fetching sessions:', error)
         return []
     }
 
-    // Flatten/map data if necessary, or return as is
     return (data || []) as SessionWithProperty[]
 }
 

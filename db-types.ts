@@ -285,6 +285,45 @@ export type Database = {
                 }
                 Relationships: []
             }
+            property_members: {
+                Row: {
+                    id: string
+                    user_id: string
+                    property_id: string
+                    role: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    user_id: string
+                    property_id: string
+                    role: string
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    property_id?: string
+                    role?: string
+                    created_at?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "property_members_user_id_fkey"
+                        columns: ["user_id"]
+                        isOneToOne: false
+                        referencedRelation: "profiles"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "property_members_property_id_fkey"
+                        columns: ["property_id"]
+                        isOneToOne: false
+                        referencedRelation: "properties"
+                        referencedColumns: ["id"]
+                    }
+                ]
+            }
             discounts: {
                 Row: {
                     id: string
