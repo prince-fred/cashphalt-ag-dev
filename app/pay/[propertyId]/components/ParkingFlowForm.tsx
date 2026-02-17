@@ -12,6 +12,18 @@ import { getParkingPrice } from '@/actions/parking'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
+
+// Helper to format time string (HH:mm:ss) to 12-hour format with AM/PM
+function formatTime12Hour(timeStr: string | null | undefined) {
+    if (!timeStr) return 'Unknown Time'
+    const [h, m] = timeStr.split(':')
+    const hour = parseInt(h, 10)
+    if (isNaN(hour)) return timeStr
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const hour12 = hour % 12 || 12
+    return `${hour12}:${m} ${ampm}`
+}
+
 // Helper hook for hydration-safe time
 function useClientTime(durationMinutes: number) {
     const [timeStr, setTimeStr] = useState<string>('--:--')
@@ -275,7 +287,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                             "text-xs font-normal",
                                             isCustomProduct ? "text-gray-300" : "text-gray-500"
                                         )}>
-                                            Ends at {property.custom_product_end_time?.slice(0, 5) || 'Unknown Time'}
+                                            Ends at {formatTime12Hour(property.custom_product_end_time)}
                                         </span>
                                     </div>
                                     <div className={twMerge(
