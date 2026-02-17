@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Database } from '@/db-types'
 import { Clock, CreditCard, Car, CheckCircle2, ArrowRight, ArrowLeft, Tag, MapPin, Info, Plus, Minus } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
+import { format } from 'date-fns'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { createParkingSession } from '@/actions/checkout'
@@ -17,7 +18,7 @@ function useClientTime(durationMinutes: number) {
 
     useEffect(() => {
         const date = new Date(Date.now() + durationMinutes * 60 * 1000)
-        setTimeStr(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+        setTimeStr(format(date, "h:mm a 'on' MMM d"))
     }, [durationMinutes])
 
     return timeStr
@@ -298,9 +299,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                     <div>
                                         <p className="text-xs text-gray-500 font-medium mb-0.5">Expires At</p>
                                         <p className="font-mono font-bold text-matte-black">
-                                            {isCustomProduct && property.custom_product_end_time
-                                                ? property.custom_product_end_time.slice(0, 5)
-                                                : clientTimeStr}
+                                            {clientTimeStr}
                                         </p>
                                     </div>
                                 </div>
