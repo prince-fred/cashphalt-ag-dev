@@ -47,45 +47,15 @@ export async function createParkingSession({ propertyId, durationHours, ruleId, 
         throw new Error("Must provide either ruleId, durationHours, or isCustomProduct")
     }
 
-    const { amountCents, ruleApplied, discountApplied, discountAmountCents } = priceResult
+    const { amountCents, ruleApplied, discountApplied, discountAmountCents, effectiveDurationHours } = priceResult
 
     // Determine duration
     let finalDurationMinutes = 0
     let endTimeInitial: Date;
 
-    if (isCustomProduct && property.custom_product_end_time) {
-        // Custom Product Logic
-        // Calculate end time based on property.custom_product_end_time (HH:MM:SS)
-        // We need to do this in the PROPERTY TIMEZONE to be accurate regarding "tomorrow" vs "today"
-        const zonedNow = toZonedTime(startTime, property.timezone)
-        const targetTime = parse(property.custom_product_end_time, 'HH:mm:ss', zonedNow)
-
-        // If target time is earlier than now (e.g. Now 2PM, Target 11AM), it implies tomorrow.
-        // If target time is later than now (e.g. Now 9AM, Target 11AM), it implies today.
-        // BUT "Overnight" usually implies "Until next morning". 
-        // If the custom product is "Event until 10PM" and it's 2PM, it's today.
-        // If the custom product is "Overnight until 8AM" and it's 2PM, it's tomorrow.
-
-        // Simple logic: If target > now, today. If target < now, tomorrow.
-        // Is this always true?
-        // Case: Overnight until 8AM. Now is 11PM. Target 8AM (today) is < Now. So tomorrow. Correct.
-        // Case: Event until 10PM. Now is 2PM. Target 10PM (today) is > Now. So today. Correct.
-        // Case: Morning Parking until 12PM. Now is 1PM. Target < Now. Tomorrow? Maybe. 
-        // We will stick to this logic as it covers the requested "Overnight" use case and standard events.
-
-        let targetEnd = targetTime
-        if (isBefore(targetEnd, zonedNow)) {
-            targetEnd = addDays(targetEnd, 1)
-        }
-
-        // Calculate minutes difference
-        const diffMs = targetEnd.getTime() - zonedNow.getTime()
-        finalDurationMinutes = Math.ceil(diffMs / (1000 * 60))
-
-        // For the session record, we should probably store UTC times, but we calculated duration.
-        // endTimeInitial should be startTime + duration.
+    if (effectiveDurationHours) {
+        finalDurationMinutes = Math.round(effectiveDurationHours * 60)
         endTimeInitial = addMinutes(startTime, finalDurationMinutes)
-
     } else if (ruleApplied?.max_duration_minutes) {
         finalDurationMinutes = ruleApplied.max_duration_minutes
         endTimeInitial = addMinutes(startTime, finalDurationMinutes)

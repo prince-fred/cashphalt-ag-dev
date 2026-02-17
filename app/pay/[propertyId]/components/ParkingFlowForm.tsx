@@ -58,11 +58,13 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
     const [isProcessing, setIsProcessing] = useState(false)
     const [checkingPrice, setCheckingPrice] = useState(false)
     const [isCustomProduct, setIsCustomProduct] = useState(false)
+    const [effectiveDuration, setEffectiveDuration] = useState<number | null>(null)
 
     // Reset Custom Product when duration is manually changed via stepper
     const handleDurationChange = (newDuration: number) => {
         setDuration(newDuration)
         setIsCustomProduct(false)
+        setEffectiveDuration(null)
     }
 
     // Load price when duration or discount changes
@@ -75,6 +77,12 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                 const codeToUse = appliedDiscount?.code
                 const res = await getParkingPrice(property.id, duration, codeToUse, isCustomProduct)
                 setPriceCents(res.amountCents)
+
+                if (isCustomProduct && res.effectiveDurationHours) {
+                    setEffectiveDuration(res.effectiveDurationHours)
+                } else {
+                    setEffectiveDuration(null)
+                }
 
                 // If the duration change somehow invalidated the discount (unlikely but possible), sync state
                 if (res.discountApplied) {
@@ -100,8 +108,13 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
         if (!discountCode) return
         setCheckingPrice(true)
         try {
-            const res = await getParkingPrice(property.id, duration, discountCode)
+            const res = await getParkingPrice(property.id, duration, discountCode, isCustomProduct)
             setPriceCents(res.amountCents)
+
+            if (isCustomProduct && res.effectiveDurationHours) {
+                setEffectiveDuration(res.effectiveDurationHours)
+            }
+
             if (res.discountApplied) {
                 setAppliedDiscount({
                     code: res.discountApplied.code,
@@ -119,7 +132,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
     }
 
     // Helper for display
-    const clientTimeStr = useClientTime(duration * 60)
+    const clientTimeStr = useClientTime(effectiveDuration ? effectiveDuration * 60 : duration * 60)
 
     // Removed handleSelectRule
 
@@ -134,7 +147,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
         try {
             const result = await createParkingSession({
                 propertyId: property.id,
-                durationHours: duration, // We need to update createParkingSession to accept durationHours instead of/in addition to ruleId
+                durationHours: isCustomProduct ? (effectiveDuration || duration) : duration,
                 plate,
                 customerEmail,
                 customerPhone: phone,
@@ -460,7 +473,9 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                 )}
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm text-gray-600 font-medium">Duration</span>
-                                    <span className="font-bold text-right text-matte-black">{duration} Hours</span>
+                                    <span className="font-bold text-right text-matte-black">
+                                        {isCustomProduct && effectiveDuration ? effectiveDuration : duration} Hours
+                                    </span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm text-gray-600 font-medium">Contact</span>

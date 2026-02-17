@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { Database } from '@/db-types'
-import { addMinutes, getDay, isAfter, isBefore, parse, set } from 'date-fns'
+import { addMinutes, addDays, getDay, isAfter, isBefore, parse, set } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz'
 
 type PricingRule = Database['public']['Tables']['pricing_rules']['Row']
@@ -11,6 +11,7 @@ interface PriceCalculationResult {
     ruleApplied: PricingRule | null
     discountApplied: Discount | null
     discountAmountCents: number
+    effectiveDurationHours?: number
 }
 
 export async function calculatePrice(
@@ -62,7 +63,7 @@ export async function calculatePrice(
     if (isCustomProduct) {
         const { data: property, error: propError } = await supabase
             .from('properties')
-            .select('custom_product_price_cents, custom_product_enabled')
+            .select('custom_product_price_cents, custom_product_enabled, custom_product_end_time, timezone')
             .eq('id', propertyId)
             .single()
 
@@ -76,9 +77,29 @@ export async function calculatePrice(
 
         const baseAmount = property.custom_product_price_cents || 0
         const res = await applyDiscount(baseAmount, propertyId, discountCode)
+
+        // Calculate effective duration
+        let effectiveDurationHours = durationHours || 1
+
+        if (property.custom_product_end_time) {
+            const zonedNow = toZonedTime(startTime, property.timezone || 'UTC')
+            const targetTime = parse(property.custom_product_end_time, 'HH:mm:ss', zonedNow)
+
+            let targetEnd = targetTime
+            if (isBefore(targetEnd, zonedNow)) {
+                targetEnd = addDays(targetEnd, 1)
+            }
+
+            // Calculate minutes difference
+            const diffMs = targetEnd.getTime() - zonedNow.getTime()
+            const minutes = Math.ceil(diffMs / (1000 * 60))
+            effectiveDurationHours = Number((minutes / 60).toFixed(2))
+        }
+
         return {
             ...res,
-            ruleApplied: null
+            ruleApplied: null,
+            effectiveDurationHours
         }
     }
 

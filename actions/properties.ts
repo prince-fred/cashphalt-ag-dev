@@ -32,6 +32,11 @@ export async function updateProperty(id: string, data: any) {
 }
 
 export async function upsertProperty(data: PropertyInsert | PropertyUpdate) {
+    // Sanitize empty strings for time columns
+    if (data.custom_product_end_time === '') {
+        data.custom_product_end_time = null
+    }
+
     // const supabase = await createClient() // Authenticated client blocked by RLS
     // Switching to service role for MVP property management
     // For MVP, hardcoding organization_id if creating new,
