@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { stripe } from '@/lib/stripe'
 import { calculatePrice } from '@/lib/parking/pricing'
 import { addMinutes, differenceInHours } from 'date-fns'
@@ -70,10 +71,13 @@ export async function extendSession({ sessionId, durationHours }: ExtendSessionP
     const finalAmountCents = amountCents > 0 ? amountCents + SERVICE_FEE_CENTS : 0
 
     // Fetch Org Details for Split
-    // We already joined properties, but need organization details which might not be in the join
-    // Let's fetch property -> org relation
-    const { data: property } = await (supabase
-        .from('properties') as any)
+    // Use Admin client to bypass RLS and read organization's stripe_connect_id securely
+    const supabaseAdmin = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    const { data: property } = await supabaseAdmin
+        .from('properties')
         .select(`
             organizations (
                 stripe_connect_id,
@@ -83,7 +87,8 @@ export async function extendSession({ sessionId, durationHours }: ExtendSessionP
         .eq('id', session.property_id)
         .single()
 
-    const org = property?.organizations
+    // Supabase types might infer organizations as an array for this join
+    const org = Array.isArray(property?.organizations) ? property.organizations[0] : property?.organizations
     const platformFeePercent = org?.platform_fee_percent || 10
     const stripeConnectId = org?.stripe_connect_id
 

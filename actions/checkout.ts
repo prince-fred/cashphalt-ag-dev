@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { stripe } from '@/lib/stripe'
 import { calculatePrice, calculatePriceForRule } from '@/lib/parking/pricing'
 import { addMinutes, parse, isBefore, addDays, set, startOfDay } from 'date-fns'
@@ -22,8 +23,15 @@ export async function createParkingSession({ propertyId, durationHours, ruleId, 
     const supabase = await createClient()
 
     // 0. Fetch Property & Org (Moved up)
-    const { data: property } = await (supabase
-        .from('properties') as any)
+    // Use an Admin client here to bypass RLS so we can read the organization's stripe_connect_id,
+    // even though this server action is called by an anonymous user.
+    const supabaseAdmin = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { data: property } = await supabaseAdmin
+        .from('properties')
         .select('*, organizations(*)')
         .eq('id', propertyId)
         .single()
