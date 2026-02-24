@@ -66,7 +66,6 @@ export function SessionsFilter({ properties }: SessionsFilterProps) {
                 <option value="all">All Statuses</option>
                 <option value="ACTIVE">Active</option>
                 <option value="EXPIRED">Expired</option>
-                <option value="COMPLETED">Completed</option>
                 <option value="PENDING_PAYMENT">Pending Payment</option>
             </select>
 

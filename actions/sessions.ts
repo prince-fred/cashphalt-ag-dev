@@ -70,8 +70,8 @@ export async function getSessions(filters?: { propertyId?: string; status?: stri
 
     if (filters?.status && filters.status !== 'all') {
         if (filters.status === 'EXPIRED') {
-            // Need ACTIVE status but end_time_current in the past
-            query = query.eq('status', 'ACTIVE').lte('end_time_current', new Date().toISOString())
+            // Need ACTIVE status but end_time_current in the past OR status is explicitly COMPLETED
+            query = query.or(`and(status.eq.ACTIVE,end_time_current.lte.${new Date().toISOString()}),status.eq.COMPLETED`)
         } else if (filters.status === 'ACTIVE') {
             // Need ACTIVE status and end_time_current in the future
             query = query.eq('status', 'ACTIVE').gt('end_time_current', new Date().toISOString())

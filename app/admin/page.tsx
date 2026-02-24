@@ -93,7 +93,7 @@ export default async function AdminDashboardPage() {
                     <div className="divide-y divide-gray-100">
                         {stats.recentSessions.map((session: any) => {
                             const isExpired = session.status === 'ACTIVE' && isPast(new Date(session.end_time_current));
-                            const displayStatus = isExpired ? 'EXPIRED' : session.status;
+                            const displayStatus = isExpired || session.status === 'COMPLETED' ? 'EXPIRED' : session.status;
                             const statusColor = displayStatus === 'ACTIVE' ? 'text-green-600' :
                                 displayStatus === 'EXPIRED' ? 'text-red-500' :
                                     'text-gray-500';

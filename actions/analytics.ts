@@ -11,14 +11,17 @@ export interface AnalyticsFilter {
 export interface AnalyticsData {
     kpis: {
         revenue: number
+        netRevenue: number
         sessions: number
         activeCount: number
         expiredCount: number
         occupancyRate: number
     }
     charts: {
-        revenue: { date: string; amount: number }[]
+        revenue: { date: string; amount: number; netAmount: number }[]
         volume: { date: string; count: number }[]
+        topProducts: { name: string; count: number }[]
+        demographics: { new: number; returning: number }
     }
     recentActivity: any[]
     properties: { id: string, name: string }[]
@@ -97,6 +100,8 @@ export async function getAnalyticsData(filters: AnalyticsFilter = {}): Promise<{
             id,
             total_price_cents,
             created_at,
+            start_time,
+            end_time_initial,
             status,
             end_time_current,
             vehicle_plate,
@@ -120,6 +125,7 @@ export async function getAnalyticsData(filters: AnalyticsFilter = {}): Promise<{
     // KPIs
     const revenueCents = safeSessions.reduce((sum, s) => sum + s.total_price_cents, 0)
     const revenue = revenueCents / 100
+    const netRevenue = revenue * 0.90 // 90/10 split
     const totalSessions = safeSessions.length
 
     // Active vs Expired (based on current status in DB or end_time?)
@@ -145,12 +151,57 @@ export async function getAnalyticsData(filters: AnalyticsFilter = {}): Promise<{
     // Maybe just "Ended Sessions" in the period.
     const expiredCount = safeSessions.filter(s => s.status !== 'ACTIVE' || new Date(s.end_time_current) <= now).length
 
-    // Occupancy?
-    // Need total spots.
-    // If not available, might return 0 or null.
-    // Let's check 'spots' table count for target properties if 'SPOT' mode?
-    // Or 'properties' capacity?
-    // Assuming simple Active count for now.
+    // Occupancy
+    const { count: parkingUnitsCount } = await supabase
+        .from('parking_units')
+        .select('*', { count: 'exact', head: true })
+        .in('property_id', targetPropertyIds)
+
+    const maxCapacity = parkingUnitsCount || 0
+    let occupancyRate = 0
+    if (maxCapacity > 0) {
+        occupancyRate = Math.min(100, Math.round((activeCount || 0) / maxCapacity * 100))
+    }
+
+    // Demographics: New vs Returning
+    const plateCounts = new Map<string, number>()
+    safeSessions.forEach(s => {
+        const plate = s.vehicle_plate?.toUpperCase()
+        if (plate) {
+            plateCounts.set(plate, (plateCounts.get(plate) || 0) + 1)
+        }
+    })
+
+    let newUsers = 0
+    let returningUsers = 0
+    plateCounts.forEach(count => {
+        if (count > 1) returningUsers++
+        else newUsers++
+    })
+
+    // Top Products (by Duration)
+    const durationCounts = new Map<string, number>()
+    safeSessions.forEach(s => {
+        if (s.start_time && s.end_time_initial) {
+            const start = new Date(s.start_time).getTime()
+            const end = new Date(s.end_time_initial).getTime()
+            const diffHours = Math.round((end - start) / (1000 * 60 * 60))
+
+            let label = `${diffHours} Hour${diffHours > 1 ? 's' : ''}`
+            if (diffHours >= 24) {
+                const days = Math.round(diffHours / 24)
+                label = `${days} Day${days > 1 ? 's' : ''}`
+                if (diffHours === 24) label = "Overnight Parking"
+            }
+
+            durationCounts.set(label, (durationCounts.get(label) || 0) + 1)
+        }
+    })
+
+    const topProducts = Array.from(durationCounts.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5)
 
     // Charts
     // Group sessions by day
@@ -183,9 +234,11 @@ export async function getAnalyticsData(filters: AnalyticsFilter = {}): Promise<{
 
     const sortedRevenueChart = days.map(day => {
         const key = format(day, 'yyyy-MM-dd')
+        const gross = revenueMap.get(key) || 0
         return {
             date: format(day, 'MMM d'),
-            amount: revenueMap.get(key) || 0
+            amount: gross,
+            netAmount: gross * 0.90
         }
     })
 
@@ -201,16 +254,22 @@ export async function getAnalyticsData(filters: AnalyticsFilter = {}): Promise<{
         data: {
             kpis: {
                 revenue,
+                netRevenue,
                 sessions: totalSessions,
                 activeCount: activeCount || 0,
                 expiredCount,
-                occupancyRate: 0 // placeholder
+                occupancyRate
             },
             charts: {
                 revenue: sortedRevenueChart,
-                volume: sortedVolumeChart
+                volume: sortedVolumeChart,
+                topProducts,
+                demographics: {
+                    new: newUsers,
+                    returning: returningUsers
+                }
             },
-            recentActivity: safeSessions.slice(0, 5),
+            recentActivity: safeSessions.slice(0, 10),
             properties: allowedProperties
         }
     }
