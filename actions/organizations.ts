@@ -2,6 +2,7 @@
 
 
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createClient } from '@/utils/supabase/server'
 import { Database } from '@/db-types'
 import { stripe } from '@/lib/stripe'
 import { revalidatePath } from 'next/cache'
@@ -59,33 +60,94 @@ export async function getStripeAccountLink(accountId: string, orgId: string) {
 }
 
 export async function getOrganizations() {
-    // Ideally use authenticated client:
-    // const supabase = await createClient()
-    // const { data } = await supabase.from('organizations').select('*').order('name')
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return []
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile) return []
 
     // BUT, since RLS is blocking and we can't run migrations right now:
-    const supabase = createAdminClient(
+    const adminSupabase = createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const { data } = await supabase.from('organizations').select('*').order('name')
+    let query = adminSupabase.from('organizations').select('*').order('name')
+
+    if (profile.role === 'admin') {
+        // Admin sees all
+    } else if (profile.role === 'property_owner') {
+        if (profile.organization_id) {
+            query = query.eq('id', profile.organization_id)
+        } else {
+            return []
+        }
+    } else {
+        return [] // Other roles cannot view organizations
+    }
+
+    const { data } = await query
 
     return (data || []) as Organization[]
 }
 
 export async function getOrganization(id: string) {
-    const supabase = createAdminClient(
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return null
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile) return null
+
+    if (profile.role !== 'admin' && profile.organization_id !== id) {
+        return null // Unauthorized
+    }
+
+    const adminSupabase = createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const { data } = await supabase.from('organizations').select('*').eq('id', id).single()
+    const { data } = await adminSupabase.from('organizations').select('*').eq('id', id).single()
     return data as Organization | null
 }
 
 export async function upsertOrganization(data: Partial<Organization>) {
-    const supabase = createAdminClient(
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) throw new Error('Unauthorized')
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile) throw new Error('Unauthorized')
+
+    if (!data.id && profile.role !== 'admin') {
+        throw new Error('Unauthorized to create organizations')
+    }
+
+    if (data.id && profile.role !== 'admin' && profile.organization_id !== data.id) {
+        throw new Error('Unauthorized to update this organization')
+    }
+
+    const adminSupabase = createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
@@ -96,7 +158,7 @@ export async function upsertOrganization(data: Partial<Organization>) {
         sanitizedData.stripe_connect_id = null
     }
 
-    const { data: inserted, error } = await supabase
+    const { data: inserted, error } = await adminSupabase
         .from('organizations')
         .upsert(sanitizedData as any)
         .select()
@@ -111,12 +173,27 @@ export async function upsertOrganization(data: Partial<Organization>) {
 }
 
 export async function deleteOrganization(id: string) {
-    const supabase = createAdminClient(
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) throw new Error('Unauthorized')
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile || profile.role !== 'admin') {
+        throw new Error('Unauthorized to delete organizations')
+    }
+
+    const adminSupabase = createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const { error } = await supabase.from('organizations').delete().eq('id', id)
+    const { error } = await adminSupabase.from('organizations').delete().eq('id', id)
 
     if (error) {
         throw new Error(error.message)
