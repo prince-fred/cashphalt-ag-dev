@@ -7,7 +7,8 @@ type SessionWithProperty = Database['public']['Tables']['sessions']['Row'] & {
     properties: Pick<Database['public']['Tables']['properties']['Row'], 'name' | 'slug'> | null
 }
 
-export async function getSessions() {
+export async function getSessions(filters?: { propertyId?: string; status?: string; search?: string }) {
+    console.log('getSessions received filters:', filters)
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -49,7 +50,38 @@ export async function getSessions() {
         .order('created_at', { ascending: false })
 
     if (propertyIds !== null) {
-        query = query.in('property_id', propertyIds)
+        // If an explicit property filter is passed and we have access to it, just query that property.
+        if (filters?.propertyId && filters.propertyId !== 'all') {
+            if (propertyIds.includes(filters.propertyId)) {
+                query = query.eq('property_id', filters.propertyId)
+            } else {
+                return [] // Unauthorized property query
+            }
+        } else {
+            // Otherwise apply the allowed set
+            query = query.in('property_id', propertyIds)
+        }
+    } else {
+        // Admin user, full access
+        if (filters?.propertyId && filters.propertyId !== 'all') {
+            query = query.eq('property_id', filters.propertyId)
+        }
+    }
+
+    if (filters?.status && filters.status !== 'all') {
+        if (filters.status === 'EXPIRED') {
+            // Need ACTIVE status but end_time_current in the past
+            query = query.eq('status', 'ACTIVE').lte('end_time_current', new Date().toISOString())
+        } else if (filters.status === 'ACTIVE') {
+            // Need ACTIVE status and end_time_current in the future
+            query = query.eq('status', 'ACTIVE').gt('end_time_current', new Date().toISOString())
+        } else {
+            query = query.eq('status', filters.status)
+        }
+    }
+
+    if (filters?.search) {
+        query = query.ilike('vehicle_plate', `%${filters.search}%`)
     }
 
     const { data, error } = await query
@@ -60,6 +92,40 @@ export async function getSessions() {
     }
 
     return (data || []) as SessionWithProperty[]
+}
+
+export async function getAssignedProperties() {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return []
+
+    // Fetch user profile
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+    let allowedProperties: { id: string, name: string }[] = []
+
+    if (profile?.role === 'admin') {
+        const { data: allProps } = await supabase.from('properties').select('id, name')
+        allowedProperties = allProps || []
+    } else if (profile?.role === 'property_owner') {
+        if (!profile.organization_id) return []
+        const { data: props } = await supabase.from('properties').select('id, name').eq('organization_id', profile.organization_id)
+        allowedProperties = props || []
+    } else if (profile?.role === 'staff') {
+        const { data: assignments } = await supabase.from('property_members').select('property_id').eq('user_id', user.id)
+        const propertyIds = assignments?.map(a => a.property_id) || []
+        if (propertyIds.length > 0) {
+            const { data: props } = await supabase.from('properties').select('id, name').in('id', propertyIds)
+            allowedProperties = props || []
+        }
+    }
+
+    return allowedProperties
 }
 
 export async function getSessionByPaymentIntent(paymentIntentId: string) {

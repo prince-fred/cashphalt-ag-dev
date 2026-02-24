@@ -1,6 +1,7 @@
 import { getAdminStats } from '@/actions/admin'
-import { ArrowUpRight, Car, DollarSign, Building } from 'lucide-react'
+import { ArrowUpRight, Car, DollarSign, Building, ArrowRight } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
+import { format, isPast } from 'date-fns'
 
 export default async function AdminDashboardPage() {
     const stats = await getAdminStats()
@@ -78,8 +79,11 @@ export default async function AdminDashboardPage() {
 
             {/* Recent Activity */}
             <Card className="overflow-hidden p-0">
-                <div className="p-6 border-b border-slate-outline bg-concrete-grey">
+                <div className="p-6 border-b border-slate-outline bg-concrete-grey flex items-center justify-between">
                     <h3 className="font-bold text-matte-black uppercase tracking-wide">Recent Sessions</h3>
+                    <a href="/admin/sessions" className="text-sm font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1 transition-colors">
+                        View All <ArrowRight size={16} />
+                    </a>
                 </div>
                 {stats.recentSessions.length === 0 ? (
                     <div className="p-12 text-center text-gray-600 italic">
@@ -87,23 +91,35 @@ export default async function AdminDashboardPage() {
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100">
-                        {stats.recentSessions.map((session: any) => (
-                            <div key={session.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold">
-                                        {session.vehicle_plate.slice(0, 2)}
+                        {stats.recentSessions.map((session: any) => {
+                            const isExpired = session.status === 'ACTIVE' && isPast(new Date(session.end_time_current));
+                            const displayStatus = isExpired ? 'EXPIRED' : session.status;
+                            const statusColor = displayStatus === 'ACTIVE' ? 'text-green-600' :
+                                displayStatus === 'EXPIRED' ? 'text-red-500' :
+                                    'text-gray-500';
+
+                            return (
+                                <div key={session.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold">
+                                            {session.vehicle_plate.slice(0, 2)}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-matte-black">{session.vehicle_plate}</p>
+                                            <div className="text-xs text-gray-500 flex items-center gap-2">
+                                                <span>{session.properties?.name || 'Unknown Property'}</span>
+                                                <span>•</span>
+                                                <span className={`font-semibold ${statusColor}`}>{displayStatus}</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="font-bold text-matte-black">{session.vehicle_plate}</p>
-                                        <p className="text-xs text-gray-500">{session.properties?.name || 'Unknown Property'}</p>
+                                    <div className="text-right">
+                                        <p className="font-bold text-matte-black">${(session.total_price_cents / 100).toFixed(2)}</p>
+                                        <p className="text-xs text-gray-500">{format(new Date(session.created_at), 'MMM d, h:mm a')}</p>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="font-bold text-matte-black">${(session.total_price_cents / 100).toFixed(2)}</p>
-                                    <p className="text-xs text-gray-500">{new Date(session.created_at).toLocaleTimeString()}</p>
-                                </div>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 )}
             </Card>

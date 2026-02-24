@@ -139,6 +139,7 @@ export async function getAnalyticsData(filters: AnalyticsFilter = {}): Promise<{
         .select('*', { count: 'exact', head: true })
         .in('property_id', targetPropertyIds)
         .eq('status', 'ACTIVE')
+        .gt('end_time_current', new Date().toISOString())
 
     // For expired count in the period?
     // Maybe just "Ended Sessions" in the period.

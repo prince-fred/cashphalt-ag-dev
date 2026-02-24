@@ -1,15 +1,25 @@
-import { getSessions } from '@/actions/sessions'
+import { getSessions, getAssignedProperties } from '@/actions/sessions'
 // Badge import removed
 import { format, isPast } from 'date-fns'
+import { SessionsFilter } from './SessionsFilter'
+import { Mail, Phone } from 'lucide-react'
 
 export const dynamic = 'force-dynamic' // Ensure it always refetches on load
 
-export default async function AdminSessionsPage() {
-    const sessions = await getSessions()
+export default async function AdminSessionsPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ propertyId?: string; status?: string; search?: string }>
+}) {
+    const params = await searchParams
+    const sessions = await getSessions(params)
+    const properties = await getAssignedProperties()
 
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold text-slate-900">Parking Sessions</h1>
+
+            <SessionsFilter properties={properties} />
 
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
@@ -19,15 +29,16 @@ export default async function AdminSessionsPage() {
                                 <th className="px-6 py-4">Status</th>
                                 <th className="px-6 py-4">Plate</th>
                                 <th className="px-6 py-4">Property</th>
-                                <th className="px-6 py-4">Duration</th>
+                                <th className="px-6 py-4">Contact</th>
+                                <th className="px-6 py-4">Duration/End</th>
                                 <th className="px-6 py-4">Total</th>
-                                <th className="px-6 py-4">Created</th>
+                                <th className="px-6 py-4">Created Date</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {sessions.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                         No sessions found.
                                     </td>
                                 </tr>
@@ -46,15 +57,29 @@ export default async function AdminSessionsPage() {
                                             {/* @ts-ignore join types can be tricky */}
                                             {session.properties?.name || 'Unknown Property'}
                                         </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col gap-1 text-xs text-slate-600">
+                                                {session.customer_email ? (
+                                                    <a href={`mailto:${session.customer_email}`} className="flex items-center gap-1 hover:text-blue-600">
+                                                        <Mail size={12} /> {session.customer_email}
+                                                    </a>
+                                                ) : <span className="text-slate-400 italic">No email</span>}
+                                                {session.customer_phone && (
+                                                    <div className="flex items-center gap-1">
+                                                        <Phone size={12} /> {session.customer_phone}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
                                         <td className="px-6 py-4 text-slate-600">
-                                            {/* Calculate duration based on start/end or stored duration? 
-                                                For now comparing start/end times if we wanted, 
-                                                but simple display relies on implementation.
-                                                Let's just show raw start/end diff or nothing for now
-                                            */}
-                                            <span className="text-xs text-slate-500">
-                                                {format(new Date(session.end_time_initial), 'h:mm a')}
-                                            </span>
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-medium">
+                                                    Ends at:
+                                                </span>
+                                                <span className="text-xs text-slate-500">
+                                                    {format(new Date(session.end_time_current), 'MMM d, h:mm a')}
+                                                </span>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 font-medium text-slate-900">
                                             ${(session.total_price_cents / 100).toFixed(2)}
