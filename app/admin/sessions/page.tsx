@@ -1,6 +1,6 @@
 import { getSessions } from '@/actions/sessions'
 // Badge import removed
-import { format } from 'date-fns'
+import { format, isPast } from 'date-fns'
 
 export const dynamic = 'force-dynamic' // Ensure it always refetches on load
 
@@ -35,7 +35,9 @@ export default async function AdminSessionsPage() {
                                 sessions.map((session) => (
                                     <tr key={session.id} className="hover:bg-slate-50/50 transition-colors">
                                         <td className="px-6 py-4">
-                                            <StatusBadge status={session.status} />
+                                            <StatusBadge
+                                                status={session.status === 'ACTIVE' && isPast(new Date(session.end_time_current)) ? 'EXPIRED' : session.status}
+                                            />
                                         </td>
                                         <td className="px-6 py-4 font-mono font-medium text-slate-900">
                                             {session.vehicle_plate}
@@ -76,6 +78,7 @@ function StatusBadge({ status }: { status: string }) {
         ACTIVE: 'bg-green-100 text-green-700 border-green-200',
         COMPLETED: 'bg-slate-100 text-slate-700 border-slate-200',
         PENDING_PAYMENT: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+        EXPIRED: 'bg-red-100 text-red-700 border-red-200',
     }
 
     const style = styles[status] || 'bg-slate-100 text-slate-500'

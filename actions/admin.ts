@@ -56,10 +56,12 @@ export async function getAdminStats() {
     // --- Queries ---
 
     // 1. Active Sessions Count
+    const now = new Date().toISOString()
     let activeQuery = supabase
         .from('sessions')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'ACTIVE')
+        .gt('end_time_current', now)
 
     if (propertyIds !== null) {
         activeQuery = activeQuery.in('property_id', propertyIds)

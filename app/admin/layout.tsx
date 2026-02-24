@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { LayoutDashboard, Building2, Ticket, Settings, LogOut, ShieldCheck as Shield, Users, Activity } from 'lucide-react'
 import { signOut } from '@/actions/auth'
+import { MobileSidebar } from './components/MobileSidebar'
 
 export default function AdminLayout({
     children,
@@ -115,7 +116,7 @@ export default function AdminLayout({
                         </div>
                         <span className="font-bold text-matte-black">Cashphalt</span>
                     </div>
-                    {/* Mobile menu trigger would go here */}
+                    <MobileSidebar />
                 </header>
                 <div className="p-8 max-w-7xl mx-auto">
                     {children}

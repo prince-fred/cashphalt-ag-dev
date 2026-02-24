@@ -160,7 +160,7 @@ export type Database = {
                     customer_email: string | null
                     customer_phone: string | null
                     start_time: string
-                    end_time: string
+                    end_time_current: string
                     end_time_initial: string
                     amount_cents: number
                     total_price_cents: number
@@ -176,7 +176,7 @@ export type Database = {
                     customer_email?: string | null
                     customer_phone?: string | null
                     start_time: string
-                    end_time: string
+                    end_time_current: string
                     end_time_initial?: string
                     amount_cents: number
                     total_price_cents?: number
@@ -192,7 +192,7 @@ export type Database = {
                     customer_email?: string | null
                     customer_phone?: string | null
                     start_time?: string
-                    end_time?: string
+                    end_time_current?: string
                     end_time_initial?: string
                     amount_cents?: number
                     total_price_cents?: number
