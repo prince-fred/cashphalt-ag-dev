@@ -141,6 +141,19 @@ export function PropertyEditor({ property, organizations }: PropertyEditorProps)
                             required
                         />
                     </div>
+                    {property?.location_code && (
+                        <div className="md:col-span-2 bg-indigo-50/50 p-4 border border-indigo-100 rounded-lg flex items-center justify-between">
+                            <div>
+                                <label className="block text-sm font-semibold text-indigo-900 mb-1">
+                                    Text-to-Park Code (Zone)
+                                </label>
+                                <p className="text-xs text-indigo-700">Users can text this code to your Twilio number to jump straight to this zone's checkout.</p>
+                            </div>
+                            <div className="text-2xl font-black text-indigo-600 tracking-wider font-mono bg-white px-4 py-2 rounded-md shadow-sm border border-indigo-200">
+                                {property.location_code}
+                            </div>
+                        </div>
+                    )}
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Property Logo

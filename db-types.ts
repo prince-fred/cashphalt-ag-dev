@@ -96,6 +96,7 @@ export type Database = {
                     custom_product_end_time: string | null
                     custom_product_price_cents: number | null
                     custom_product_enabled: boolean
+                    location_code: string | null
                 }
                 Insert: {
                     id?: string
@@ -118,6 +119,7 @@ export type Database = {
                     custom_product_end_time?: string | null
                     custom_product_price_cents?: number | null
                     custom_product_enabled?: boolean
+                    location_code?: string | null
                 }
                 Update: {
                     id?: string
@@ -140,6 +142,7 @@ export type Database = {
                     custom_product_end_time?: string | null
                     custom_product_price_cents?: number | null
                     custom_product_enabled?: boolean
+                    location_code?: string | null
                 }
                 Relationships: [
                     {
@@ -217,6 +220,7 @@ export type Database = {
                     name: string
                     is_occupied: boolean
                     created_at: string
+                    location_code: string | null
                 }
                 Insert: {
                     id?: string
@@ -224,6 +228,7 @@ export type Database = {
                     name: string
                     is_occupied?: boolean
                     created_at?: string
+                    location_code?: string | null
                 }
                 Update: {
                     id?: string
@@ -231,6 +236,7 @@ export type Database = {
                     name?: string
                     is_occupied?: boolean
                     created_at?: string
+                    location_code?: string | null
                 }
                 Relationships: []
             }

@@ -177,7 +177,7 @@ export async function getParkingUnits(propertyId: string) {
         .eq('property_id', propertyId)
         .order('name', { ascending: true })
 
-    return (data || []) as { id: string, property_id: string, name: string }[]
+    return (data || []) as { id: string, property_id: string, name: string, location_code: string | null }[]
 }
 
 export async function createParkingUnit(propertyId: string, name: string) {
@@ -250,5 +250,5 @@ export async function getParkingUnit(unitId: string) {
         .eq('id', unitId)
         .single()
 
-    return data as { id: string, property_id: string, name: string } | null
+    return data as { id: string, property_id: string, name: string, location_code: string | null } | null
 }

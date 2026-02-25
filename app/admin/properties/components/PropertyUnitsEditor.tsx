@@ -15,6 +15,7 @@ interface ParkingUnit {
     id: string
     property_id: string
     name: string
+    location_code?: string | null
 }
 
 interface PropertyUnitsEditorProps {
@@ -170,6 +171,7 @@ export function PropertyUnitsEditor({ propertyId, propertySlug, allocationMode, 
                             <thead className="bg-slate-50 text-slate-500 font-medium">
                                 <tr>
                                     <th className="px-4 py-3">Name</th>
+                                    <th className="px-4 py-3">Text-to-Park Code</th>
                                     <th className="px-4 py-3">Direct Link</th>
                                     <th className="px-4 py-3 text-right">Actions</th>
                                 </tr>
@@ -181,6 +183,9 @@ export function PropertyUnitsEditor({ propertyId, propertySlug, allocationMode, 
                                         <tr key={unit.id} className="hover:bg-slate-50 group">
                                             <td className="px-4 py-3 font-medium text-slate-900">
                                                 {unit.name}
+                                            </td>
+                                            <td className="px-4 py-3 font-mono text-indigo-600 font-bold tracking-wider">
+                                                {unit.location_code || '-'}
                                             </td>
                                             <td className="px-4 py-3 hidden md:table-cell">
                                                 <a href={link} target="_blank" className="text-indigo-600 hover:underline flex items-center gap-1 overflow-hidden text-ellipsis max-w-[200px] whitespace-nowrap">
