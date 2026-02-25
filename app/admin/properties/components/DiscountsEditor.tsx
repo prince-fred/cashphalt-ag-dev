@@ -149,7 +149,7 @@ export function DiscountsEditor({ propertyId, discounts }: DiscountsEditorProps)
                             <select
                                 value={formData.type}
                                 onChange={e => setFormData({ ...formData, type: e.target.value as any })}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
                             >
                                 <option value="PERCENTAGE">Percentage (%)</option>
                                 <option value="FIXED_AMOUNT">Fixed Amount ($)</option>

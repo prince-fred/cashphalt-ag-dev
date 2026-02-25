@@ -86,7 +86,7 @@ export default function OperationsDashboard() {
                     {data?.properties && data.properties.length > 0 && (
                         <div className="relative">
                             <select
-                                className="h-10 pl-3 pr-8 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-950 max-w-[200px]"
+                                className="h-10 pl-3 pr-8 rounded-md border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-950 max-w-[200px]"
                                 value={filters.propertyId}
                                 onChange={(e) => setFilters(prev => ({ ...prev, propertyId: e.target.value }))}
                             >
@@ -99,7 +99,7 @@ export default function OperationsDashboard() {
                     )}
                     <div className="relative">
                         <select
-                            className="h-10 pl-3 pr-8 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-950"
+                            className="h-10 pl-3 pr-8 rounded-md border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-950"
                             value={filters.dateRange}
                             onChange={(e) => setFilters(prev => ({ ...prev, dateRange: e.target.value as any }))}
                         >

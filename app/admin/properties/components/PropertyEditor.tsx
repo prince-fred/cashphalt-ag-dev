@@ -99,7 +99,7 @@ export function PropertyEditor({ property, organizations }: PropertyEditorProps)
                             value={formData.organization_id}
                             onChange={handleChange}
                             required
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
                             {organizations.length === 0 && <option value="">No organizations found</option>}
                             {organizations.map(org => (
@@ -224,7 +224,7 @@ export function PropertyEditor({ property, organizations }: PropertyEditorProps)
                             name="timezone"
                             value={formData.timezone}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
                             <option value="UTC">UTC</option>
                             <option value="America/New_York">Eastern Time</option>
@@ -238,7 +238,7 @@ export function PropertyEditor({ property, organizations }: PropertyEditorProps)
                             name="allocation_mode"
                             value={formData.allocation_mode}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
                             <option value="ZONE">Zone Based (General Lot)</option>
                             <option value="SPOT">Spot Based (Numbered Spaces)</option>
