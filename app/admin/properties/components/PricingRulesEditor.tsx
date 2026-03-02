@@ -24,13 +24,14 @@ const DAYS = [
 interface PricingRulesEditorProps {
     propertyId: string
     rules: PricingRule[]
+    units: Database['public']['Tables']['parking_units']['Row'][]
     timezone: string
     minDuration: number | null
     maxDuration: number | null
     hourlyRateCents: number | null
 }
 
-export function PricingRulesEditor({ propertyId, rules, timezone, minDuration, maxDuration, hourlyRateCents }: PricingRulesEditorProps) {
+export function PricingRulesEditor({ propertyId, rules, units, timezone, minDuration, maxDuration, hourlyRateCents }: PricingRulesEditorProps) {
     const router = useRouter()
     const [isAdding, setIsAdding] = useState(false)
     const [loading, setLoading] = useState(false)
@@ -40,6 +41,7 @@ export function PricingRulesEditor({ propertyId, rules, timezone, minDuration, m
 
     const [formData, setFormData] = useState<Partial<PricingRuleInsert>>({
         property_id: propertyId,
+        unit_id: null,
         rate_type: 'FLAT',
         amount_cents: 500,
         priority: rules.length > 0 ? (Math.max(...rules.map(r => r.priority)) + 10) : 10,
@@ -64,16 +66,16 @@ export function PricingRulesEditor({ propertyId, rules, timezone, minDuration, m
                 dataToSave.min_duration_minutes = null
                 dataToSave.max_duration_minutes = null
                 dataToSave.description = null
-            } else {
-                // Bucket implies FLAT usually
-                dataToSave.rate_type = 'FLAT'
             }
+
+            // Allow BUCKET to use any rate_type now (FLAT, DAILY, HOURLY)
 
             await upsertPricingRule(dataToSave as PricingRuleInsert)
             toast.success('Rule saved successfully')
             setIsAdding(false)
             setFormData({
                 property_id: propertyId,
+                unit_id: null,
                 rate_type: 'FLAT',
                 amount_cents: 500,
                 priority: rules.length > 0 ? (Math.max(...rules.map(r => r.priority)) + 10) : 10,
@@ -178,6 +180,11 @@ export function PricingRulesEditor({ propertyId, rules, timezone, minDuration, m
                                         <span className={`px-2 py-0.5 rounded text-xs font-bold ${isBucket ? 'bg-indigo-50 text-indigo-700' : 'bg-orange-50 text-orange-700'}`}>
                                             {isBucket ? 'BUCKET' : 'STANDARD'}
                                         </span>
+                                        {rule.unit_id && (
+                                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full font-medium">
+                                                {units.find(u => u.id === rule.unit_id)?.name || 'Unknown Zone'}
+                                            </span>
+                                        )}
                                         <span className="text-slate-400 text-xs text-mono bg-slate-50 px-1.5 rounded">P{rule.priority}</span>
                                         <h3 className="font-bold text-slate-900">{rule.name || 'Unnamed Rule'}</h3>
                                         {!rule.is_active && (
@@ -265,6 +272,22 @@ export function PricingRulesEditor({ propertyId, rules, timezone, minDuration, m
                         />
                     </div>
 
+                    {units.length > 0 && (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Applies To (Zone/Spot)</label>
+                            <select
+                                value={formData.unit_id || ''}
+                                onChange={e => setFormData({ ...formData, unit_id: e.target.value || null })}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                            >
+                                <option value="">Property-Wide (All Units)</option>
+                                {units.map(u => (
+                                    <option key={u.id} value={u.id}>{u.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
                     {ruleCategory === 'BUCKET' && (
                         <>
                             <div>
@@ -304,21 +327,22 @@ export function PricingRulesEditor({ propertyId, rules, timezone, minDuration, m
                     )}
 
                     <div className="grid grid-cols-2 gap-4">
-                        {ruleCategory === 'STANDARD' && (
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Rate Type</label>
-                                <select
-                                    value={formData.rate_type}
-                                    onChange={e => setFormData({ ...formData, rate_type: e.target.value as any })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
-                                >
-                                    <option value="HOURLY">Hourly</option>
-                                    <option value="FLAT">Flat Rate</option>
-                                    <option value="DAILY">Daily Max</option>
-                                </select>
-                            </div>
-                        )}
-                        <div className={ruleCategory === 'BUCKET' ? 'col-span-2' : ''}>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Rate Type</label>
+                            <select
+                                value={formData.rate_type}
+                                onChange={e => setFormData({ ...formData, rate_type: e.target.value as any })}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                            >
+                                <option value="HOURLY">Hourly</option>
+                                <option value="FLAT">Flat Rate</option>
+                                <option value="DAILY">Daily Max</option>
+                            </select>
+                            {ruleCategory === 'BUCKET' && formData.rate_type === 'DAILY' && (
+                                <p className="text-xs text-slate-500 mt-1">Multi-day "Park & Fly" style discounts.</p>
+                            )}
+                        </div>
+                        <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Price ($)</label>
                             <div className="relative">
                                 <span className="absolute left-3 top-2 text-slate-500">$</span>

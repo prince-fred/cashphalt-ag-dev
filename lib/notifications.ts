@@ -74,12 +74,85 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
                 to: toEmail,
                 subject: subject,
                 html: `
-                    <h1>${title}</h1>
-                    <p><strong>Location:</strong> ${propertyName}</p>
-                    ${unitName ? `<p><strong>${allocationMode === 'ZONE' ? 'Zone' : 'Spot'}:</strong> ${unitName}</p>` : ''}
-                    <p><strong>Plate:</strong> ${plate}</p>
-                    <p><strong>Total:</strong> ${formattedPrice}</p>
-                    <p><strong>Expires:</strong> ${timeString}</p>
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>${title}</title>
+                    </head>
+                    <body style="margin: 0; padding: 0; background-color: #F4F4F5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #121212;">
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F4F4F5; padding: 40px 20px;">
+                            <tr>
+                                <td align="center">
+                                    <table width="100%" max-width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #FFFFFF; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
+                                        <!-- Header -->
+                                        <tr>
+                                            <td style="padding: 40px 40px 20px 40px; text-align: center; border-bottom: 2px solid #F4F4F5;">
+                                                <h1 style="margin: 0; font-size: 28px; font-weight: 800; color: #121212; letter-spacing: -0.5px;">${propertyName}</h1>
+                                            </td>
+                                        </tr>
+                                        <!-- Content -->
+                                        <tr>
+                                            <td style="padding: 30px 40px;">
+                                                <h2 style="margin: 0 0 24px 0; font-size: 20px; font-weight: 600; color: #121212;">${title}</h2>
+                                                
+                                                <div style="background-color: #F4F4F5; border-radius: 8px; padding: 24px; margin-bottom: 30px;">
+                                                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                                        <tr>
+                                                            <td style="padding-bottom: 16px;">
+                                                                <p style="margin: 0; font-size: 13px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">Location Details</p>
+                                                                <p style="margin: 4px 0 0 0; font-size: 16px; color: #121212;">${propertyName}</p>
+                                                            </td>
+                                                        </tr>
+                                                        ${unitName ? `<tr>
+                                                            <td style="padding-bottom: 16px;">
+                                                                <p style="margin: 0; font-size: 13px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">${allocationMode === 'ZONE' ? 'Zone' : 'Spot'}</p>
+                                                                <p style="margin: 4px 0 0 0; font-size: 16px; color: #121212;">${unitName}</p>
+                                                            </td>
+                                                        </tr>` : ''}
+                                                        <tr>
+                                                            <td style="padding-bottom: 16px;">
+                                                                <p style="margin: 0; font-size: 13px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">Vehicle</p>
+                                                                <p style="margin: 4px 0 0 0; font-size: 16px; font-weight: 500; color: #121212;">License Plate: <span style="background-color: #121212; color: #FFFFFF; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 14px; margin-left: 4px;">${plate}</span></p>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>
+                                                                <p style="margin: 0; font-size: 13px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">Expiration</p>
+                                                                <p style="margin: 4px 0 0 0; font-size: 18px; font-weight: 600; color: #121212;">${timeString}</p>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </div>
+
+                                                <div style="border-top: 1px solid #E4E4E7; border-bottom: 1px solid #E4E4E7; padding: 20px 0; margin-bottom: 30px; text-align: center;">
+                                                    <p style="margin: 0 0 8px 0; font-size: 15px; color: #666;">Total Charged</p>
+                                                    <p style="margin: 0; font-size: 32px; font-weight: 700; color: #121212;">${formattedPrice}</p>
+                                                </div>
+
+                                                <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                                    <tr>
+                                                        <td align="center">
+                                                            <a href="${link}" style="display: inline-block; background-color: #FFD700; color: #121212; font-size: 16px; font-weight: 700; text-decoration: none; padding: 16px 32px; border-radius: 8px; width: 100%; max-width: 300px; text-align: center; border: 1px solid #EAB308;">EXTEND SESSION</a>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                        <!-- Footer -->
+                                        <tr>
+                                            <td style="background-color: #F4F4F5; padding: 24px 40px; text-align: center; border-top: 1px solid #E4E4E7;">
+                                                <p style="margin: 0; font-size: 12px; color: #999;">If you need assistance with your parking session, please contact support.</p>
+                                                <p style="margin: 12px 0 0 0; font-size: 12px; color: #999; font-weight: 600;">Powered by Cashphalt</p>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </body>
+                    </html>
                 `
             }).catch(err => console.error('[Notification] Email Failed:', err))
         )
@@ -119,11 +192,58 @@ export async function sendExpiryWarning({ toEmail, toPhone, plate, propertyName,
                 to: toEmail,
                 subject: `Action Required: Parking Expiring Soon (${plate})`,
                 html: `
-                    <h1>Parking Expiring Soon</h1>
-                    <p>Your parking session at <strong>${propertyName}</strong> ${unitName ? `(${allocationMode === 'ZONE' ? 'Zone' : 'Spot'}: <strong>${unitName}</strong>) ` : ''}for vehicle <strong>${plate}</strong> is about to expire.</p>
-                    <p style="font-size: 18px; font-weight: bold; color: #DC2626;">Expires at: ${timeString}</p>
-                    <br/>
-                    <a href="${link}" style="background-color: #000; color: #FFD700; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Extend Session Now</a>
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Parking Expiring Soon</title>
+                    </head>
+                    <body style="margin: 0; padding: 0; background-color: #F4F4F5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #121212;">
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F4F4F5; padding: 40px 20px;">
+                            <tr>
+                                <td align="center">
+                                    <table width="100%" max-width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #FFFFFF; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
+                                        <!-- Header -->
+                                        <tr>
+                                            <td style="padding: 40px 40px 20px 40px; text-align: center; border-bottom: 2px solid #F4F4F5;">
+                                                <h1 style="margin: 0; font-size: 28px; font-weight: 800; color: #121212; letter-spacing: -0.5px;">${propertyName}</h1>
+                                            </td>
+                                        </tr>
+                                        <!-- Content -->
+                                        <tr>
+                                            <td style="padding: 30px 40px;">
+                                                <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #DC2626;">Action Required: Parking Expiring Soon</h2>
+                                                
+                                                <p style="margin: 0 0 24px 0; font-size: 16px; color: #444; line-height: 1.5;">Your parking session at <strong>${propertyName}</strong> ${unitName ? `(${allocationMode === 'ZONE' ? 'Zone' : 'Spot'}: <strong>${unitName}</strong>) ` : ''}for vehicle <strong>${plate}</strong> is about to expire.</p>
+
+                                                <div style="background-color: rgba(220, 38, 38, 0.05); border: 1px solid rgba(220, 38, 38, 0.2); border-radius: 8px; padding: 24px; margin-bottom: 30px; text-align: center;">
+                                                    <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: #DC2626; text-transform: uppercase; letter-spacing: 0.5px;">Expires At</p>
+                                                    <p style="margin: 0; font-size: 32px; font-weight: 700; color: #DC2626;">${timeString}</p>
+                                                </div>
+
+                                                <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                                    <tr>
+                                                        <td align="center">
+                                                            <a href="${link}" style="display: inline-block; background-color: #FFD700; color: #121212; font-size: 16px; font-weight: 700; text-decoration: none; padding: 16px 32px; border-radius: 8px; width: 100%; max-width: 300px; text-align: center; border: 1px solid #EAB308;">EXTEND SESSION NOW</a>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                        <!-- Footer -->
+                                        <tr>
+                                            <td style="background-color: #F4F4F5; padding: 24px 40px; text-align: center; border-top: 1px solid #E4E4E7;">
+                                                <p style="margin: 0; font-size: 12px; color: #999;">If you need assistance with your parking session, please contact support.</p>
+                                                <p style="margin: 12px 0 0 0; font-size: 12px; color: #999; font-weight: 600;">Powered by Cashphalt</p>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </body>
+                    </html>
                 `
             }).catch(err => console.error('[Notification] Warning Email Failed:', err))
         )

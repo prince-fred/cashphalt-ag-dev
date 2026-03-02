@@ -22,6 +22,12 @@ export default async function PropertyPricingPage({ params }: { params: Promise<
         .eq('property_id', id)
         .order('priority', { ascending: false })
 
+    const { data: units } = await supabase
+        .from('parking_units')
+        .select('*')
+        .eq('property_id', id)
+        .order('name', { ascending: true })
+
     return (
         <div className="space-y-6">
             <Link
@@ -41,6 +47,7 @@ export default async function PropertyPricingPage({ params }: { params: Promise<
             <PricingRulesEditor
                 propertyId={id}
                 rules={(rules as PricingRule[]) || []}
+                units={units || []}
                 timezone={property.timezone}
                 minDuration={property.min_duration_hours}
                 maxDuration={property.max_booking_duration_hours}

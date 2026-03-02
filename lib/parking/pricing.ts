@@ -20,7 +20,8 @@ export async function calculatePrice(
     durationHours: number,
     discountCode?: string,
     timezone?: string, // Optional, if provided avoids extra fetch
-    isCustomProduct?: boolean
+    isCustomProduct?: boolean,
+    unitId?: string
 ): Promise<PriceCalculationResult> {
     const supabase = await createClient()
 
@@ -30,12 +31,20 @@ export async function calculatePrice(
 
     if (!timezone) {
         // Fetch rules AND property timezone in one go if possible, or separately
-        const { data: rulesData, error } = await (supabase
-            .from('pricing_rules') as any)
+        let query = supabase
+            .from('pricing_rules')
             .select('*, properties(timezone)')
             .eq('property_id', propertyId)
             .eq('is_active', true)
             .order('priority', { ascending: false })
+
+        if (unitId) {
+            query = query.or(`unit_id.is.null,unit_id.eq.${unitId}`)
+        } else {
+            query = query.is('unit_id', null)
+        }
+
+        const { data: rulesData, error } = await query
 
         if (error || !rulesData) {
             console.error('Pricing Error:', error)
@@ -48,12 +57,20 @@ export async function calculatePrice(
             return rule
         }) as PricingRule[]
     } else {
-        const { data: rulesData, error } = await (supabase
-            .from('pricing_rules') as any)
+        let query = supabase
+            .from('pricing_rules')
             .select('*')
             .eq('property_id', propertyId)
             .eq('is_active', true)
             .order('priority', { ascending: false })
+
+        if (unitId) {
+            query = query.or(`unit_id.is.null,unit_id.eq.${unitId}`)
+        } else {
+            query = query.is('unit_id', null)
+        }
+
+        const { data: rulesData, error } = await query
 
         if (error || !rulesData) throw new Error('Could not fetch pricing rules')
         rules = rulesData as PricingRule[]
@@ -107,7 +124,13 @@ export async function calculatePrice(
     // We must check applicability in the PROPERTY'S timezone
     const matchedRule = rules.find(rule => isRuleApplicable(rule, startTime, propertyTimezone))
 
-    // Fallback default price if no rule matches
+    // If there ARE rules defined for this context but NONE match the current time/day,
+    // it means parking is explicitly restricted/not allowed right now.
+    if (!matchedRule && rules.length > 0) {
+        throw new Error('RULES_EXIST_BUT_NOT_APPLICABLE') // Handled by frontend
+    }
+
+    // Fallback default price if no rule matches and no rules exist
     if (!matchedRule) {
         // Fetch property base rate
         const { data: property, error: propError } = await supabase

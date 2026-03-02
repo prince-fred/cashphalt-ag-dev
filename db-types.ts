@@ -244,6 +244,7 @@ export type Database = {
                 Row: {
                     id: string
                     property_id: string
+                    unit_id: string | null
                     priority: number
                     name: string | null
                     description: string | null
@@ -260,6 +261,7 @@ export type Database = {
                 Insert: {
                     id?: string
                     property_id: string
+                    unit_id?: string | null
                     priority: number
                     name?: string | null
                     description?: string | null
@@ -276,6 +278,7 @@ export type Database = {
                 Update: {
                     id?: string
                     property_id?: string
+                    unit_id?: string | null
                     priority: number
                     name?: string | null
                     description?: string | null
@@ -289,7 +292,15 @@ export type Database = {
                     is_active?: boolean
                     created_at?: string
                 }
-                Relationships: []
+                Relationships: [
+                    {
+                        foreignKeyName: "pricing_rules_unit_id_fkey"
+                        columns: ["unit_id"]
+                        isOneToOne: false
+                        referencedRelation: "parking_units"
+                        referencedColumns: ["id"]
+                    }
+                ]
             }
             property_members: {
                 Row: {

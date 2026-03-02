@@ -73,6 +73,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
     const [checkingPrice, setCheckingPrice] = useState(false)
     const [isCustomProduct, setIsCustomProduct] = useState(false)
     const [effectiveDuration, setEffectiveDuration] = useState<number | null>(null)
+    const [isRestrictedTime, setIsRestrictedTime] = useState(false)
 
     // Reset Custom Product when duration is manually changed via stepper
     const handleDurationChange = (newDuration: number) => {
@@ -108,8 +109,13 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                     // Code was applied but now rejected? (e.g. usage limit hit in maintime)
                     setAppliedDiscount(null)
                 }
-            } catch (e) {
+
+                setIsRestrictedTime(false) // Clear restriction error on success
+            } catch (e: any) {
                 console.error(e)
+                if (e.message?.includes('RULES_EXIST_BUT_NOT_APPLICABLE')) {
+                    setIsRestrictedTime(true)
+                }
             } finally {
                 setCheckingPrice(false)
             }
@@ -320,6 +326,10 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                     <p className="text-xs font-bold text-gray-600 uppercase">Total</p>
                                     {checkingPrice ? (
                                         <div className="h-8 w-24 bg-gray-200 animate-pulse rounded" />
+                                    ) : isRestrictedTime ? (
+                                        <div className="text-sm font-bold text-error-red">
+                                            Unavailable
+                                        </div>
                                     ) : appliedDiscount ? (
                                         <div>
                                             <p className="text-sm text-gray-400 line-through decoration-red-500">
@@ -444,19 +454,26 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                             </div>
                         </div>
 
-                        <Button
-                            onClick={handleReview}
-                            className="w-full h-14 text-lg mt-4"
-                            disabled={!plate || !phone || !customerEmail || !termsAccepted || isProcessing}
-                        >
-                            {isProcessing ? (
-                                <div className="animate-spin w-5 h-5 border-2 border-matte-black/30 border-t-matte-black rounded-full" />
-                            ) : (
-                                <>
-                                    Review & Pay <ArrowRight size={20} className="ml-2" />
-                                </>
+                        <div className="space-y-4 pt-4">
+                            {isRestrictedTime && (
+                                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium text-center">
+                                    Parking is not available at this location for the selected time.
+                                </div>
                             )}
-                        </Button>
+                            <Button
+                                onClick={handleReview}
+                                className="w-full h-14 text-lg"
+                                disabled={!plate || !phone || !customerEmail || !termsAccepted || isProcessing || isRestrictedTime}
+                            >
+                                {isProcessing ? (
+                                    <div className="animate-spin w-5 h-5 border-2 border-matte-black/30 border-t-matte-black rounded-full" />
+                                ) : (
+                                    <>
+                                        Review & Pay <ArrowRight size={20} className="ml-2" />
+                                    </>
+                                )}
+                            </Button>
+                        </div>
                     </div>
                 )}
 
