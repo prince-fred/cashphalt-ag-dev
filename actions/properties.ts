@@ -102,18 +102,19 @@ export async function updateProperty(id: string, data: any) {
 }
 
 export async function upsertProperty(data: PropertyInsert | PropertyUpdate) {
-    // Sanitize empty strings for time columns
-    if (data.custom_product_end_time === '') {
-        data.custom_product_end_time = null
-    }
-
-    // const supabase = await createClient() // Authenticated client blocked by RLS
-    // Switching to service role for MVP property management
-    // For MVP, hardcoding organization_id if creating new,
-    // normally you'd get this from the logged in user's context.
-    // Fetching the first org for now if org_id is missing.
     // USING SERVICE ROLE to bypass RLS for this system check
-    if (!data.organization_id) {
+    // We explicitly strip out custom product fields just in case legacy clients send them
+    const {
+        custom_product_name,
+        custom_product_end_time,
+        custom_product_price_cents,
+        custom_product_enabled,
+        ...safeData
+    } = data as any;
+
+    const finalData = safeData;
+
+    if (!finalData.organization_id) {
         const adminSupabase = createAdminClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -121,7 +122,7 @@ export async function upsertProperty(data: PropertyInsert | PropertyUpdate) {
         // Note: importing createClient from supabase-js, not the server util for this one-off
         const { data: orgs } = await (adminSupabase.from('organizations') as any).select('id').limit(1)
         if (orgs && orgs.length > 0) {
-            data.organization_id = orgs[0].id
+            finalData.organization_id = orgs[0].id
         } else {
             throw new Error("No organization found")
         }
@@ -134,7 +135,7 @@ export async function upsertProperty(data: PropertyInsert | PropertyUpdate) {
     )
 
     const { data: inserted, error } = await (adminSupabase.from('properties') as any)
-        .upsert(data)
+        .upsert(finalData)
         .select()
         .single()
 
@@ -151,8 +152,8 @@ export async function upsertProperty(data: PropertyInsert | PropertyUpdate) {
     revalidatePath(`/admin/properties/${inserted.id}`)
 
     // If this was a new property (no ID in input data), create a default unit
-    if (!data.id) {
-        const defaultUnitName = (data.allocation_mode === 'SPOT') ? 'Spot 1' : 'Zone A'
+    if (!finalData.id) {
+        const defaultUnitName = (finalData.allocation_mode === 'SPOT') ? 'Spot 1' : 'Zone A'
         await createParkingUnit(inserted.id, defaultUnitName)
     }
 

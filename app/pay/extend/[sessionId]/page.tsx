@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { ExtensionFlow } from './components/ExtensionFlow'
 import { Card } from '@/components/ui/Card'
 import { Clock } from 'lucide-react'
+import { formatInTimeZone } from 'date-fns-tz'
 
 interface PageProps {
     params: Promise<{ sessionId: string }>
@@ -52,7 +53,7 @@ export default async function ExtensionPage({ params }: PageProps) {
                     <div className="mb-6 bg-blue-50 border border-blue-100 p-4 rounded-lg text-center">
                         <p className="text-xs text-blue-600 font-bold uppercase tracking-wider mb-1">Current Expiry</p>
                         <p className="text-2xl font-bold text-slate-900">
-                            {new Date(session.end_time_current).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone: property.timezone })}
+                            {formatInTimeZone(new Date(session.end_time_current), property.timezone, 'MMM d, h:mm a')}
                         </p>
                     </div>
 

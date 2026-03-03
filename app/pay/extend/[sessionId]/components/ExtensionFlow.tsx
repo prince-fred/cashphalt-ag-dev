@@ -10,6 +10,8 @@ import { getParkingPrice } from '@/actions/parking'
 import { Button } from '@/components/ui/Button'
 import { CheckCircle2, CreditCard, ArrowRight, ArrowLeft, Clock, Plus, Minus } from 'lucide-react'
 import { Slider } from '@/components/ui/Slider'
+import { addDays, addMinutes } from 'date-fns'
+import { formatInTimeZone, toZonedTime, fromZonedTime } from 'date-fns-tz'
 
 // Initialize Stripe
 const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
@@ -23,14 +25,23 @@ interface ExtensionFlowProps {
     property: Property
 }
 
-// Helper hook for hydration-safe time (reused from ParkingFlowForm logic)
+// Helper hook for hydration-safe time
 function useClientTime(durationMinutes: number, timezone: string, baseTimeMs?: number) {
     const [timeStr, setTimeStr] = useState<string>('--:--')
 
     useEffect(() => {
         const start = baseTimeMs || Date.now()
-        const date = new Date(start + durationMinutes * 60 * 1000)
-        setTimeStr(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: timezone }))
+        let end: Date;
+        if (durationMinutes % 1440 === 0) {
+            const daysToAdd = durationMinutes / 1440;
+            const zonedStart = toZonedTime(start, timezone);
+            const newZonedStart = addDays(zonedStart, daysToAdd);
+            end = fromZonedTime(newZonedStart, timezone);
+        } else {
+            end = addMinutes(start, durationMinutes);
+        }
+
+        setTimeStr(formatInTimeZone(end, timezone, 'MMM d, h:mm a'))
     }, [durationMinutes, timezone, baseTimeMs])
 
     return timeStr
@@ -43,9 +54,10 @@ export function ExtensionFlow({ session, property }: ExtensionFlowProps) {
     const [priceCents, setPriceCents] = useState<number>(0)
     const [isProcessing, setIsProcessing] = useState(false)
     const [checkingPrice, setCheckingPrice] = useState(false)
+    const [rateType, setRateType] = useState<'HOURLY' | 'FLAT' | 'DAILY'>('HOURLY')
 
     const minHours = 1
-    const maxHours = Math.min(24, property.max_booking_duration_hours)
+    const maxHours = property.max_booking_duration_hours
 
     // Calculate expiration based on current session end time
     // @ts-ignore: end_time_current missing from generated types
@@ -57,8 +69,14 @@ export function ExtensionFlow({ session, property }: ExtensionFlowProps) {
         const fetchPrice = async () => {
             setCheckingPrice(true)
             try {
-                // Fetch price for the *extension duration*
-                const res = await getParkingPrice(property.id, duration)
+                // Fetch price for the *extension duration*, passing in the unit_id
+                const res = await getParkingPrice(property.id, duration, undefined, undefined, (session as any).spot_id ?? undefined)
+
+                setRateType(res.rateType as any)
+                if (res.rateType === 'DAILY' && duration < 24) {
+                    setDuration(24)
+                }
+
                 // Add the Service Fee ($1.00) to the displayed estimate
                 // The backend extendSession adds it, so we should show it here too
                 // The getParkingPrice returns just the parking rate
@@ -110,13 +128,20 @@ export function ExtensionFlow({ session, property }: ExtensionFlowProps) {
                     {/* Stepper UI */}
                     <div>
                         <label className="block text-sm font-bold text-matte-black uppercase tracking-wide mb-3 flex items-center gap-2">
-                            Full Hours to Add
+                            {rateType === 'DAILY' ? 'Full Days to Add' : 'Full Hours to Add'}
                         </label>
 
                         <div className="flex items-center justify-between bg-gray-50 rounded-xl p-4 border-2 border-slate-outline">
                             <Button
                                 variant="outline"
-                                onClick={() => setDuration(Math.max(minHours, duration - 1))}
+                                onClick={() => {
+                                    if (rateType === 'DAILY') {
+                                        const nextDuration = Math.max(minHours, Math.ceil(duration / 24 - 1) * 24)
+                                        setDuration(nextDuration)
+                                    } else {
+                                        setDuration(Math.max(minHours, duration - 1))
+                                    }
+                                }}
                                 disabled={duration <= minHours}
                                 className="h-16 w-16 rounded-xl border-2 hover:bg-slate-200 shrink-0"
                             >
@@ -125,16 +150,28 @@ export function ExtensionFlow({ session, property }: ExtensionFlowProps) {
 
                             <div className="text-center flex-1 mx-4">
                                 <div className="text-4xl font-bold font-mono text-matte-black">
-                                    {duration}<span className="text-lg font-sans font-medium text-gray-500 uppercase ml-1">h</span>
+                                    {rateType === 'DAILY' ? Math.ceil(duration / 24) : duration}
+                                    <span className="text-lg font-sans font-medium text-gray-500 uppercase ml-1">
+                                        {rateType === 'DAILY' ? 'd' : 'h'}
+                                    </span>
                                 </div>
                                 <div className="text-sm font-medium text-gray-500 mt-1">
-                                    Additional Time
+                                    {rateType === 'DAILY'
+                                        ? (Math.ceil(duration / 24) === 1 ? 'Day' : 'Days')
+                                        : (duration === 1 ? 'Hour' : 'Hours')}
                                 </div>
                             </div>
 
                             <Button
                                 variant="outline"
-                                onClick={() => setDuration(Math.min(maxHours, duration + 1))}
+                                onClick={() => {
+                                    if (rateType === 'DAILY') {
+                                        const nextDuration = (Math.floor(duration / 24) + 1) * 24
+                                        setDuration(Math.min(maxHours, nextDuration))
+                                    } else {
+                                        setDuration(Math.min(maxHours, duration + 1))
+                                    }
+                                }}
                                 disabled={duration >= maxHours}
                                 className="h-16 w-16 rounded-xl border-2 hover:bg-slate-200 shrink-0"
                             >

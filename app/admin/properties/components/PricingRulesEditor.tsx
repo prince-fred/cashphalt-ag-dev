@@ -7,6 +7,7 @@ import { Plus, Trash2, Clock, Calendar, DollarSign, AlertCircle, Timer } from 'l
 import { toast } from 'sonner'
 import { Modal } from '@/components/ui/Modal'
 import { useRouter } from 'next/navigation'
+import { Edit2 } from 'lucide-react'
 
 type PricingRule = Database['public']['Tables']['pricing_rules']['Row']
 type PricingRuleInsert = Database['public']['Tables']['pricing_rules']['Insert']
@@ -39,7 +40,7 @@ export function PricingRulesEditor({ propertyId, rules, units, timezone, minDura
     // UI state for the form type
     const [ruleCategory, setRuleCategory] = useState<'STANDARD' | 'BUCKET'>('BUCKET')
 
-    const [formData, setFormData] = useState<Partial<PricingRuleInsert>>({
+    const defaultFormData: Partial<PricingRuleInsert> = {
         property_id: propertyId,
         unit_id: null,
         rate_type: 'FLAT',
@@ -52,8 +53,11 @@ export function PricingRulesEditor({ propertyId, rules, units, timezone, minDura
         name: '',
         description: '',
         min_duration_minutes: 0,
-        max_duration_minutes: 60
-    })
+        max_duration_minutes: 60,
+        is_custom_product: false
+    }
+
+    const [formData, setFormData] = useState<Partial<PricingRuleInsert>>(defaultFormData)
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -73,27 +77,26 @@ export function PricingRulesEditor({ propertyId, rules, units, timezone, minDura
             await upsertPricingRule(dataToSave as PricingRuleInsert)
             toast.success('Rule saved successfully')
             setIsAdding(false)
-            setFormData({
-                property_id: propertyId,
-                unit_id: null,
-                rate_type: 'FLAT',
-                amount_cents: 500,
-                priority: rules.length > 0 ? (Math.max(...rules.map(r => r.priority)) + 10) : 10,
-                days_of_week: null,
-                start_time: null,
-                end_time: null,
-                is_active: true,
-                name: '',
-                description: '',
-                min_duration_minutes: 0,
-                max_duration_minutes: 60
-            })
+            setFormData(defaultFormData)
             router.refresh()
         } catch (err: any) {
             toast.error(err.message)
         } finally {
             setLoading(false)
         }
+    }
+
+    const handleEdit = (rule: PricingRule) => {
+        const isBucket = rule.min_duration_minutes !== null && rule.max_duration_minutes !== null
+        setRuleCategory(isBucket ? 'BUCKET' : 'STANDARD')
+        setFormData(rule)
+        setIsAdding(true)
+    }
+
+    const handleAddNew = () => {
+        setFormData(defaultFormData)
+        setRuleCategory('BUCKET')
+        setIsAdding(true)
     }
 
     const handleDelete = async (id: string) => {
@@ -121,10 +124,7 @@ export function PricingRulesEditor({ propertyId, rules, units, timezone, minDura
             <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-slate-900">Pricing Rules</h2>
                 <button
-                    onClick={() => {
-                        setRuleCategory('BUCKET')
-                        setIsAdding(true)
-                    }}
+                    onClick={handleAddNew}
                     className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
                 >
                     <Plus size={16} /> Add Rule
@@ -185,7 +185,12 @@ export function PricingRulesEditor({ propertyId, rules, units, timezone, minDura
                                                 {units.find(u => u.id === rule.unit_id)?.name || 'Unknown Zone'}
                                             </span>
                                         )}
-                                        <span className="text-slate-400 text-xs text-mono bg-slate-50 px-1.5 rounded">P{rule.priority}</span>
+                                        {rule.is_custom_product && (
+                                            <span className="bg-indigo-100 text-indigo-800 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                                                Event/Custom
+                                            </span>
+                                        )}
+                                        <span className="text-slate-400 text-xs font-mono bg-slate-50 px-1.5 rounded">P{rule.priority}</span>
                                         <h3 className="font-bold text-slate-900">{rule.name || 'Unnamed Rule'}</h3>
                                         {!rule.is_active && (
                                             <span className="bg-slate-100 text-slate-500 text-xs px-2 py-0.5 rounded-full">Inactive</span>
@@ -226,20 +231,29 @@ export function PricingRulesEditor({ propertyId, rules, units, timezone, minDura
                                         <p className="text-xs text-slate-500 italic">{rule.description}</p>
                                     )}
                                 </div>
-                                <button
-                                    onClick={() => handleDelete(rule.id)}
-                                    className="p-2 text-slate-400 hover:text-red-600 transition-colors"
-                                    title="Delete Rule"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => handleEdit(rule)}
+                                        className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                                        title="Edit Rule"
+                                    >
+                                        <Edit2 size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(rule.id)}
+                                        className="p-2 text-slate-400 hover:text-red-600 transition-colors"
+                                        title="Delete Rule"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
                             </div>
                         )
                     })
                 )}
             </div>
 
-            <Modal isOpen={isAdding} onClose={() => setIsAdding(false)} title="Add Pricing Rule">
+            <Modal isOpen={isAdding} onClose={() => setIsAdding(false)} title={formData.id ? "Edit Pricing Rule" : "Add Pricing Rule"}>
                 <form onSubmit={handleSave} className="space-y-4 py-4">
                     {/* Category Selector */}
                     <div className="flex bg-slate-100 p-1 rounded-lg mb-4">
@@ -340,6 +354,22 @@ export function PricingRulesEditor({ propertyId, rules, units, timezone, minDura
                             </select>
                             {ruleCategory === 'BUCKET' && formData.rate_type === 'DAILY' && (
                                 <p className="text-xs text-slate-500 mt-1">Multi-day "Park & Fly" style discounts.</p>
+                            )}
+                            {ruleCategory === 'STANDARD' && formData.rate_type === 'FLAT' && (
+                                <div className="mt-4 pt-3 border-t border-slate-100">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.is_custom_product || false}
+                                            onChange={e => setFormData({ ...formData, is_custom_product: e.target.checked })}
+                                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span className="text-sm font-medium text-slate-700">Special Event / Custom Product</span>
+                                    </label>
+                                    <p className="text-xs text-slate-500 mt-1 ml-6">
+                                        Check this to make this rule appear as a distinct "Product" button on the payment page.
+                                    </p>
+                                </div>
                             )}
                         </div>
                         <div>

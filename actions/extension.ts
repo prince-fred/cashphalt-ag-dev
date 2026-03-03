@@ -4,7 +4,8 @@ import { createClient } from '@/utils/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { stripe } from '@/lib/stripe'
 import { calculatePrice } from '@/lib/parking/pricing'
-import { addMinutes, differenceInHours } from 'date-fns'
+import { addDays, addMinutes, differenceInHours } from 'date-fns'
+import { toZonedTime, fromZonedTime } from 'date-fns-tz'
 import { sendSessionReceipt } from '@/lib/notifications'
 
 interface ExtendSessionParams {
@@ -33,25 +34,54 @@ export async function extendSession({ sessionId, durationHours }: ExtendSessionP
         throw new Error('Session not found')
     }
 
-    // 2. Validate Duration Cap
+    // 2. Calculate Price for the Extension FIRST
+    // Price based on the extension start time (which is the current end time)
     const currentEnd = new Date(session.end_time_current)
-    const newEnd = addMinutes(currentEnd, durationHours * 60)
+    const propertyTimezone = session.properties?.timezone
+
+    // We get the price and what rule is being applied
+    const { amountCents, ruleApplied, effectiveDurationHours } = await calculatePrice(
+        session.property_id,
+        currentEnd,
+        durationHours,
+        undefined,
+        propertyTimezone,
+        (session as any).spot_id ?? undefined
+    )
+
+    // 3. Determine the actual duration we are granting
+    // If it's a FLAT event rate, we might use effectiveDurationHours or max_duration_minutes.
+    // If it's a DAILY rate and the user requested 24 hours (or automatically snapped to 24), we grant what they asked.
+    let grantedMinutes = durationHours * 60;
+
+    if (effectiveDurationHours) {
+        grantedMinutes = effectiveDurationHours * 60;
+    } else if (ruleApplied?.max_duration_minutes && ruleApplied.rate_type === 'FLAT') {
+        grantedMinutes = ruleApplied.max_duration_minutes;
+    }
+
+    let newEnd: Date;
+    if (grantedMinutes % 1440 === 0 && propertyTimezone) {
+        // Safe Add Days logic preserving Wall Clock time across DST
+        const daysToAdd = grantedMinutes / 1440;
+        const zonedEnd = toZonedTime(currentEnd, propertyTimezone);
+        const newZonedEnd = addDays(zonedEnd, daysToAdd);
+        newEnd = fromZonedTime(newZonedEnd, propertyTimezone);
+    } else {
+        newEnd = addMinutes(currentEnd, grantedMinutes);
+    }
     const startTime = new Date(session.start_time)
 
+    // 4. Validate Duration Cap
     // Total duration in hours (approx)
     const totalDurationHours = differenceInHours(newEnd, startTime)
 
     // @ts-ignore join types
     const maxDuration = session.properties?.max_booking_duration_hours || 24
-    const propertyTimezone = session.properties?.timezone
 
     if (totalDurationHours > maxDuration) {
         throw new Error(`Cannot extend. Total duration would exceed limit of ${maxDuration} hours.`)
     }
-
-    // 3. Calculate Price for the Extension
-    // Price based on the extension start time (which is the current end time)
-    const { amountCents, ruleApplied } = await calculatePrice(session.property_id, currentEnd, durationHours, undefined, propertyTimezone)
 
     // 4. Create Snapshot Logic (Audit)
     if (ruleApplied) {
@@ -112,12 +142,12 @@ export async function extendSession({ sessionId, durationHours }: ExtendSessionP
         // Fetch Unit Name for receipt
         let unitName = null
         // @ts-ignore db-types mismatch
-        if (session.spot_id) {
+        if ((session as any).spot_id) {
             const { data: unit } = await (supabase
                 .from('parking_units') as any)
                 .select('name')
                 // @ts-ignore
-                .eq('id', session.spot_id)
+                .eq('id', (session as any).spot_id)
                 .single()
             if (unit) unitName = unit.name
         }
@@ -155,7 +185,8 @@ export async function extendSession({ sessionId, durationHours }: ExtendSessionP
             sessionId: session.id,
             propertyId: session.property_id,
             type: 'EXTENSION',
-            durationHours: durationHours.toString()
+            durationHours: durationHours.toString(),
+            grantedMinutes: Math.round((newEnd.getTime() - currentEnd.getTime()) / 60000).toString()
         },
         automatic_payment_methods: { enabled: true }
     }

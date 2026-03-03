@@ -31,14 +31,8 @@ export function PropertyEditor({ property, organizations }: PropertyEditorProps)
         timezone: property?.timezone || 'America/New_York',
         qr_enabled: property?.qr_enabled ?? true,
         sms_enabled: property?.sms_enabled ?? true,
-        price_hourly_cents: property?.price_hourly_cents || 500,
-        logo_url: property?.logo_url || '',
         address: property?.address || '',
         min_duration_hours: property?.min_duration_hours || 1,
-        custom_product_name: property?.custom_product_name || '',
-        custom_product_end_time: property?.custom_product_end_time || '',
-        custom_product_price_cents: property?.custom_product_price_cents || 0,
-        custom_product_enabled: property?.custom_product_enabled || false,
     })
 
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -257,85 +251,6 @@ export function PropertyEditor({ property, organizations }: PropertyEditorProps)
                             <option value="SPOT">Spot Based (Numbered Spaces)</option>
                         </select>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Base Hourly Rate ($)</label>
-                        <div className="relative">
-                            <span className="absolute left-3 top-2 text-slate-500">$</span>
-                            <input
-                                name="price_hourly_cents"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={formData.price_hourly_cents !== undefined ? formData.price_hourly_cents / 100 : ''}
-                                onChange={e => setFormData({ ...formData, price_hourly_cents: Math.round(parseFloat(e.target.value) * 100) })}
-                                className="w-full pl-7 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1">Fallback rate if no rules match.</p>
-                    </div>
-                </div>
-
-
-
-                <div className="md:col-span-2 border-t border-slate-100 pt-6 mt-2">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <h3 className="text-lg font-medium text-slate-900">Custom Parking Product</h3>
-                            <p className="text-sm text-slate-500">Enable a special parking option (e.g. Overnight, Event) with a fixed end time and price.</p>
-                        </div>
-                        <div className="flex items-center">
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    name="custom_product_enabled"
-                                    checked={formData.custom_product_enabled || false}
-                                    onChange={handleChange}
-                                    className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                            </label>
-                        </div>
-                    </div>
-
-                    {formData.custom_product_enabled && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Product Name</label>
-                                <input
-                                    type="text"
-                                    name="custom_product_name"
-                                    placeholder="e.g. Overnight Parking"
-                                    value={formData.custom_product_name || ''}
-                                    onChange={(e) => setFormData({ ...formData, custom_product_name: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">End Time (24h)</label>
-                                <input
-                                    type="time"
-                                    name="custom_product_end_time"
-                                    value={formData.custom_product_end_time || ''}
-                                    onChange={(e) => setFormData({ ...formData, custom_product_end_time: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Fixed Price ($)</label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-2 text-slate-500">$</span>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={formData.custom_product_price_cents !== undefined && formData.custom_product_price_cents !== null ? formData.custom_product_price_cents / 100 : ''}
-                                        onChange={e => setFormData({ ...formData, custom_product_price_cents: Math.round(parseFloat(e.target.value) * 100) })}
-                                        className="w-full pl-7 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 <div className="flex justify-end pt-4 border-t border-slate-100">

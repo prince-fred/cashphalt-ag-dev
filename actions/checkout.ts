@@ -5,7 +5,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { stripe } from '@/lib/stripe'
 import { calculatePrice, calculatePriceForRule } from '@/lib/parking/pricing'
 import { addMinutes, parse, isBefore, addDays, set, startOfDay } from 'date-fns'
-import { toZonedTime } from 'date-fns-tz'
+import { toZonedTime, fromZonedTime } from 'date-fns-tz'
 
 interface CreateSessionParams {
     propertyId: string
@@ -16,10 +16,9 @@ interface CreateSessionParams {
     customerPhone?: string
     discountCode?: string
     unitId?: string
-    isCustomProduct?: boolean
 }
 
-export async function createParkingSession({ propertyId, durationHours, ruleId, plate, customerEmail, customerPhone, discountCode, unitId, isCustomProduct }: CreateSessionParams) {
+export async function createParkingSession({ propertyId, durationHours, ruleId, plate, customerEmail, customerPhone, discountCode, unitId }: CreateSessionParams) {
     const supabase = await createClient()
 
     // 0. Fetch Property & Org (Moved up)
@@ -48,32 +47,41 @@ export async function createParkingSession({ propertyId, durationHours, ruleId, 
 
     if (ruleId) {
         priceResult = await calculatePriceForRule(propertyId, ruleId, discountCode)
-    } else if (durationHours || isCustomProduct) {
+    } else if (durationHours) {
         // Pass property timezone to avoid re-fetching
-        priceResult = await calculatePrice(propertyId, startTime, durationHours || 0, discountCode, property.timezone, isCustomProduct)
+        priceResult = await calculatePrice(propertyId, startTime, durationHours, discountCode, property.timezone, unitId)
     } else {
-        throw new Error("Must provide either ruleId, durationHours, or isCustomProduct")
+        throw new Error("Must provide either ruleId or durationHours")
     }
 
-    const { amountCents, ruleApplied, discountApplied, discountAmountCents, effectiveDurationHours } = priceResult
+    const { amountCents, ruleApplied, discountApplied, discountAmountCents } = priceResult
 
     // Determine duration
     let finalDurationMinutes = 0
-    let endTimeInitial: Date;
 
-    if (effectiveDurationHours) {
-        finalDurationMinutes = Math.round(effectiveDurationHours * 60)
-        endTimeInitial = addMinutes(startTime, finalDurationMinutes)
-    } else if (ruleApplied?.max_duration_minutes) {
+    if (ruleApplied?.max_duration_minutes && ruleApplied.rate_type === 'FLAT') {
+        // If it's a FLAT bucket (like an Event Rate), the duration extends to the max bucket duration
         finalDurationMinutes = ruleApplied.max_duration_minutes
-        endTimeInitial = addMinutes(startTime, finalDurationMinutes)
     } else if (durationHours) {
+        // Otherwise use what the user asked for
         finalDurationMinutes = durationHours * 60
-        endTimeInitial = addMinutes(startTime, finalDurationMinutes)
+    } else if (ruleApplied?.max_duration_minutes) {
+        // Fallback to rule limit
+        finalDurationMinutes = ruleApplied.max_duration_minutes
     } else {
-        // Fallback or Error
+        // Ultimate Fallback
         finalDurationMinutes = 60
-        endTimeInitial = addMinutes(startTime, finalDurationMinutes)
+    }
+
+    let endTimeInitial: Date;
+    if (finalDurationMinutes % 1440 === 0 && property.timezone) {
+        // Safe Add Days logic preserving Wall Clock time across DST boundaries
+        const daysToAdd = finalDurationMinutes / 1440;
+        const zonedStart = toZonedTime(startTime, property.timezone);
+        const newZonedStart = addDays(zonedStart, daysToAdd);
+        endTimeInitial = fromZonedTime(newZonedStart, property.timezone);
+    } else {
+        endTimeInitial = addMinutes(startTime, finalDurationMinutes);
     }
 
     // 2. Create Session in DB

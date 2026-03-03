@@ -1,4 +1,4 @@
-import { getPropertyBySlugOrId } from '@/actions/parking'
+import { getPropertyBySlugOrId, getInitialDuration, getCustomProducts } from '@/actions/parking'
 import { getParkingUnit } from '@/actions/properties'
 import { notFound } from 'next/navigation'
 import { ParkingFlowForm } from './components/ParkingFlowForm'
@@ -31,6 +31,9 @@ export default async function PublicParkingPage({ params, searchParams }: PagePr
     if (!property) {
         notFound()
     }
+
+    const initialDuration = await getInitialDuration(property.id, unit?.id)
+    const customProducts = await getCustomProducts(property.id, unit?.id)
 
     return (
         <div className="min-h-screen bg-concrete-grey flex flex-col items-center justify-center p-4">
@@ -66,7 +69,7 @@ export default async function PublicParkingPage({ params, searchParams }: PagePr
 
                 {/* Main Card */}
                 <Card className="rounded-t-none border-t-0 shadow-xl">
-                    <ParkingFlowForm property={property} unit={unit} />
+                    <ParkingFlowForm property={property} unit={unit} initialDuration={initialDuration} initialCustomProducts={customProducts} />
                 </Card>
 
                 {/* Footer */}

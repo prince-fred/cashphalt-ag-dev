@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { Database } from '@/db-types'
 import { Clock, CreditCard, Car, CheckCircle2, ArrowRight, ArrowLeft, Tag, MapPin, Info, Plus, Minus } from 'lucide-react'
 import { twMerge } from 'tailwind-merge'
-import { format } from 'date-fns'
+import { format, addDays, addMinutes } from 'date-fns'
+import { formatInTimeZone, toZonedTime, fromZonedTime } from 'date-fns-tz'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { createParkingSession } from '@/actions/checkout'
@@ -26,13 +27,23 @@ function formatTime12Hour(timeStr: string | null | undefined) {
 }
 
 // Helper hook for hydration-safe time
-function useClientTime(durationMinutes: number) {
+function useClientTime(durationMinutes: number, timezone: string = 'UTC') {
     const [timeStr, setTimeStr] = useState<string>('--:--')
 
     useEffect(() => {
-        const date = new Date(Date.now() + durationMinutes * 60 * 1000)
-        setTimeStr(format(date, "h:mm a 'on' MMM d"))
-    }, [durationMinutes])
+        const start = Date.now()
+        let end: Date;
+        if (durationMinutes % 1440 === 0) {
+            const daysToAdd = durationMinutes / 1440;
+            const zonedStart = toZonedTime(start, timezone);
+            const newZonedStart = addDays(zonedStart, daysToAdd);
+            end = fromZonedTime(newZonedStart, timezone);
+        } else {
+            end = addMinutes(start, durationMinutes);
+        }
+
+        setTimeStr(formatInTimeZone(end, timezone, "h:mm a 'on' MMM d"))
+    }, [durationMinutes, timezone])
 
     return timeStr
 }
@@ -50,15 +61,20 @@ type PricingRule = Database['public']['Tables']['pricing_rules']['Row']
 interface ParkingFlowFormProps {
     property: Property
     unit?: { id: string, name: string } | null
+    initialDuration?: number | null
+    initialCustomProducts: PricingRule[]
 }
 
-export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
+export function ParkingFlowForm({ property, unit, initialDuration, initialCustomProducts }: ParkingFlowFormProps) {
     const [step, setStep] = useState<1 | 2>(1)
 
     // Duration State
     const minHours = property.min_duration_hours || 1
     const maxHours = property.max_booking_duration_hours || 24
-    const [duration, setDuration] = useState(minHours)
+
+    // Start at initialDuration if provided and valid, otherwise fallback to property minHours
+    const startingDuration = initialDuration && initialDuration <= maxHours ? initialDuration : minHours
+    const [duration, setDuration] = useState(startingDuration)
 
 
     const [plate, setPlate] = useState('')
@@ -74,6 +90,10 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
     const [isCustomProduct, setIsCustomProduct] = useState(false)
     const [effectiveDuration, setEffectiveDuration] = useState<number | null>(null)
     const [isRestrictedTime, setIsRestrictedTime] = useState(false)
+    const [rateType, setRateType] = useState<'HOURLY' | 'FLAT' | 'DAILY'>('HOURLY')
+    const [customProducts, setCustomProducts] = useState<PricingRule[]>(initialCustomProducts)
+
+    const activeCustomProductRule = customProducts.length > 0 ? customProducts[0] : null
 
     // Reset Custom Product when duration is manually changed via stepper
     const handleDurationChange = (newDuration: number) => {
@@ -90,13 +110,23 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
             try {
                 // Use the APPLIED discount, not the input text
                 const codeToUse = appliedDiscount?.code
-                const res = await getParkingPrice(property.id, duration, codeToUse, isCustomProduct)
+                const ruleIdToSend = isCustomProduct && activeCustomProductRule ? activeCustomProductRule.id : undefined
+                const res = await getParkingPrice(property.id, duration, codeToUse, ruleIdToSend, unit?.id)
                 setPriceCents(res.amountCents)
 
                 if (isCustomProduct && res.effectiveDurationHours) {
                     setEffectiveDuration(res.effectiveDurationHours)
                 } else {
                     setEffectiveDuration(null)
+                }
+
+                setRateType(res.rateType as any)
+
+                // IMPORTANT: If the rate falls back to DAILY but the current
+                // duration is less than 24 hours, snap the internal state up to 24
+                // so the expiration time calculates correctly.
+                if (res.rateType === 'DAILY' && duration < 24) {
+                    setDuration(24)
                 }
 
                 // If the duration change somehow invalidated the discount (unlikely but possible), sync state
@@ -128,7 +158,8 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
         if (!discountCode) return
         setCheckingPrice(true)
         try {
-            const res = await getParkingPrice(property.id, duration, discountCode, isCustomProduct)
+            const ruleIdToSend = isCustomProduct && activeCustomProductRule ? activeCustomProductRule.id : undefined
+            const res = await getParkingPrice(property.id, duration, discountCode, ruleIdToSend, unit?.id)
             setPriceCents(res.amountCents)
 
             if (isCustomProduct && res.effectiveDurationHours) {
@@ -152,7 +183,10 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
     }
 
     // Helper for display
-    const clientTimeStr = useClientTime(effectiveDuration ? effectiveDuration * 60 : duration * 60)
+    const clientTimeStr = useClientTime(
+        effectiveDuration ? effectiveDuration * 60 : duration * 60,
+        property.timezone || 'UTC'
+    )
 
     // Removed handleSelectRule
 
@@ -173,7 +207,7 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                 customerPhone: phone,
                 discountCode: appliedDiscount?.code,
                 unitId: unit?.id,
-                isCustomProduct
+                ruleId: isCustomProduct && activeCustomProductRule ? activeCustomProductRule.id : undefined
             })
 
             // If we successfully get a clientSecret or free session, proceed
@@ -236,8 +270,15 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                             <div className="flex items-center justify-between bg-gray-50 rounded-xl p-4 border-2 border-slate-outline">
                                 <Button
                                     variant="outline"
-                                    onClick={() => handleDurationChange(Math.max(minHours, duration - 1))}
-                                    disabled={duration <= minHours || isCustomProduct} // Disable if custom product selected? Or checking it deselects custom product (handled in wrapper)
+                                    onClick={() => {
+                                        if (rateType === 'DAILY') {
+                                            const nextDuration = Math.max(minHours, Math.ceil(duration / 24 - 1) * 24)
+                                            handleDurationChange(nextDuration)
+                                        } else {
+                                            handleDurationChange(Math.max(minHours, duration - 1))
+                                        }
+                                    }}
+                                    disabled={duration <= minHours || isCustomProduct}
                                     className="h-16 w-16 rounded-xl border-2 hover:bg-slate-200 shrink-0"
                                 >
                                     <Minus size={28} />
@@ -245,10 +286,15 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
 
                                 <div className="text-center flex-1 mx-4">
                                     <div className="text-4xl font-bold font-mono text-matte-black">
-                                        {duration}<span className="text-lg font-sans font-medium text-gray-500 uppercase ml-1">h</span>
+                                        {rateType === 'DAILY' ? Math.ceil(duration / 24) : duration}
+                                        <span className="text-lg font-sans font-medium text-gray-500 uppercase ml-1">
+                                            {rateType === 'DAILY' ? 'd' : 'h'}
+                                        </span>
                                     </div>
                                     <div className="text-sm font-medium text-gray-500 mt-1">
-                                        {duration === 1 ? 'Hour' : 'Hours'}
+                                        {rateType === 'DAILY'
+                                            ? (Math.ceil(duration / 24) === 1 ? 'Day' : 'Days')
+                                            : (duration === 1 ? 'Hour' : 'Hours')}
                                     </div>
                                     {priceCents > 0 && (
                                         <div className="inline-block mt-2 font-bold text-signal-yellow bg-matte-black px-3 py-1 rounded-full text-sm">
@@ -261,7 +307,14 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
 
                                 <Button
                                     variant="outline"
-                                    onClick={() => handleDurationChange(Math.min(maxHours, duration + 1))}
+                                    onClick={() => {
+                                        if (rateType === 'DAILY') {
+                                            const nextDuration = (Math.floor(duration / 24) + 1) * 24
+                                            handleDurationChange(Math.min(maxHours, nextDuration))
+                                        } else {
+                                            handleDurationChange(Math.min(maxHours, duration + 1))
+                                        }
+                                    }}
                                     disabled={duration >= maxHours || isCustomProduct}
                                     className="h-16 w-16 rounded-xl border-2 hover:bg-slate-200 shrink-0"
                                 >
@@ -270,13 +323,12 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                             </div>
                         </div>
 
-                        {property.custom_product_enabled && (
+                        {customProducts.length > 0 && activeCustomProductRule && (
                             <div className="mt-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
                                 <Button
                                     variant="outline"
                                     onClick={() => {
                                         setIsCustomProduct(!isCustomProduct)
-                                        // If selecting, maybe reset duration visual? Or keep it?
                                     }}
                                     className={twMerge(
                                         "w-full h-auto py-4 rounded-xl border-2 text-lg font-bold transition-all duration-300 relative overflow-hidden shadow-sm hover:shadow-md",
@@ -287,21 +339,23 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                 >
                                     <div className="flex flex-col items-center justify-center w-full gap-1">
                                         <div className="flex items-center gap-2">
-                                            <span>{property.custom_product_name || 'Special Rate'}</span>
+                                            <span>{activeCustomProductRule.name || 'Special Rate'}</span>
                                             {isCustomProduct && <CheckCircle2 size={18} className="text-signal-yellow" />}
                                         </div>
-                                        <span className={twMerge(
-                                            "text-xs font-normal",
-                                            isCustomProduct ? "text-gray-300" : "text-gray-500"
-                                        )}>
-                                            Ends at {formatTime12Hour(property.custom_product_end_time)}
-                                        </span>
+                                        {activeCustomProductRule.end_time && (
+                                            <span className={twMerge(
+                                                "text-xs font-normal",
+                                                isCustomProduct ? "text-gray-300" : "text-gray-500"
+                                            )}>
+                                                Ends at {formatTime12Hour(activeCustomProductRule.end_time)}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className={twMerge(
                                         "absolute right-4 top-1/2 -translate-y-1/2 px-2 py-0.5 rounded text-xs font-bold",
                                         isCustomProduct ? "bg-signal-yellow text-matte-black" : "bg-slate-100 text-slate-600"
                                     )}>
-                                        ${property.custom_product_price_cents ? (property.custom_product_price_cents / 100).toFixed(2) : '-.--'}
+                                        ${(activeCustomProductRule.amount_cents / 100).toFixed(2)}
                                     </div>
                                 </Button>
                             </div>
@@ -503,7 +557,9 @@ export function ParkingFlowForm({ property, unit }: ParkingFlowFormProps) {
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm text-gray-600 font-medium">Duration</span>
                                     <span className="font-bold text-right text-matte-black">
-                                        {isCustomProduct && effectiveDuration ? effectiveDuration : duration} Hours
+                                        {rateType === 'DAILY'
+                                            ? `${Math.ceil((isCustomProduct && effectiveDuration ? effectiveDuration : duration) / 24)} Days`
+                                            : `${isCustomProduct && effectiveDuration ? effectiveDuration : duration} Hours`}
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-center">

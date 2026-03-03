@@ -20,7 +20,6 @@ export async function calculatePrice(
     durationHours: number,
     discountCode?: string,
     timezone?: string, // Optional, if provided avoids extra fetch
-    isCustomProduct?: boolean,
     unitId?: string
 ): Promise<PriceCalculationResult> {
     const supabase = await createClient()
@@ -76,123 +75,66 @@ export async function calculatePrice(
         rules = rulesData as PricingRule[]
     }
 
-    // 1.5 Custom Product Logic
-    if (isCustomProduct) {
-        const { data: property, error: propError } = await supabase
-            .from('properties')
-            .select('custom_product_price_cents, custom_product_enabled, custom_product_end_time, timezone')
-            .eq('id', propertyId)
-            .single()
-
-        if (propError || !property) {
-            throw new Error('Property not found')
-        }
-
-        if (!property.custom_product_enabled) {
-            throw new Error('Custom product is not enabled for this property')
-        }
-
-        const baseAmount = property.custom_product_price_cents || 0
-        const res = await applyDiscount(baseAmount, propertyId, discountCode)
-
-        // Calculate effective duration
-        let effectiveDurationHours = durationHours || 1
-
-        if (property.custom_product_end_time) {
-            const zonedNow = toZonedTime(startTime, property.timezone || 'UTC')
-            const targetTime = parse(property.custom_product_end_time, 'HH:mm:ss', zonedNow)
-
-            let targetEnd = targetTime
-            if (isBefore(targetEnd, zonedNow)) {
-                targetEnd = addDays(targetEnd, 1)
-            }
-
-            // Calculate minutes difference
-            const diffMs = targetEnd.getTime() - zonedNow.getTime()
-            const minutes = Math.ceil(diffMs / (1000 * 60))
-            effectiveDurationHours = Number((minutes / 60).toFixed(2))
-        }
-
-        return {
-            ...res,
-            ruleApplied: null,
-            effectiveDurationHours
+    // STRICT ZONE ISOLATION:
+    // If a unitId is provided, and there is AT LEAST ONE rule specifically assigned to that unitId,
+    // we should completely ignore property-wide fallback rules (unit_id IS NULL) for this calculation.
+    if (unitId) {
+        const hasUnitSpecificRules = rules.some(r => r.unit_id === unitId)
+        if (hasUnitSpecificRules) {
+            rules = rules.filter(r => r.unit_id === unitId)
         }
     }
 
     // 2. Base Price Calculation
     // We must check applicability in the PROPERTY'S timezone
-    const matchedRule = rules.find(rule => isRuleApplicable(rule, startTime, propertyTimezone))
+    const matchedRule = rules.find(rule => isRuleApplicable(rule, startTime, propertyTimezone, durationHours))
 
-    // If there ARE rules defined for this context but NONE match the current time/day,
-    // it means parking is explicitly restricted/not allowed right now.
-    if (!matchedRule && rules.length > 0) {
+    // If there ARE rules defined for this context but NONE match the current time/day
+    // (We also check if duration is the ONLY reason it didn't match, to avoid throwing unallowed timeframe error incorrectly)
+    const timeMatchRule = rules.find(rule => isRuleApplicable(rule, startTime, propertyTimezone, null))
+
+    if (!matchedRule && timeMatchRule) {
+        // It matches time, but not duration. Don't throw restricted error, let it fall back or error gracefully
+        // Actually, if it doesn't match duration either, we should just throw the same restriction error.
+        throw new Error('RULES_EXIST_BUT_NOT_APPLICABLE')
+    } else if (!matchedRule) {
         throw new Error('RULES_EXIST_BUT_NOT_APPLICABLE') // Handled by frontend
     }
 
-    // Fallback default price if no rule matches and no rules exist
-    if (!matchedRule) {
-        // Fetch property base rate
-        const { data: property, error: propError } = await supabase
-            .from('properties')
-            .select('price_hourly_cents')
-            .eq('id', propertyId)
-            .single()
+    let selectedRule: PricingRule = matchedRule
+    let baseAmountCents = calculateRuleAmount(selectedRule, durationHours)
 
-        const hourlyRate = property?.price_hourly_cents || 500 // Default to $5 if not set
-        const baseAmount = Math.round(hourlyRate * durationHours)
+    // OPTIMIZATION: "Daily Max" Logic
+    if (selectedRule && selectedRule.rate_type === 'DAILY') {
+        const hourlyRule = rules.find(r =>
+            r.id !== selectedRule!.id &&
+            r.rate_type === 'HOURLY' &&
+            isRuleApplicable(r, startTime, propertyTimezone, durationHours)
+        )
 
-        const res = await applyDiscount(baseAmount, propertyId, discountCode)
-        return {
-            ...res,
-            ruleApplied: null
-        }
-    }
-
-    let selectedRule: PricingRule | null = matchedRule
-    let baseAmountCents = 0
-
-    if (matchedRule) {
-        selectedRule = matchedRule
-        baseAmountCents = calculateRuleAmount(selectedRule, durationHours)
-
-        // OPTIMIZATION: "Daily Max" Logic
-        if (selectedRule && selectedRule.rate_type === 'DAILY') {
-            const hourlyRule = rules.find(r =>
-                r.id !== selectedRule!.id &&
-                r.rate_type === 'HOURLY' &&
-                isRuleApplicable(r, startTime, propertyTimezone)
-            )
-
-            if (hourlyRule) {
-                const hourlyAmount = calculateRuleAmount(hourlyRule, durationHours)
-                if (hourlyAmount < baseAmountCents) {
-                    console.log(`Switching from DAILY (${baseAmountCents}) to HOURLY (${hourlyAmount})`)
-                    baseAmountCents = hourlyAmount
-                    selectedRule = hourlyRule
-                }
+        if (hourlyRule) {
+            const hourlyAmount = calculateRuleAmount(hourlyRule, durationHours)
+            if (hourlyAmount < baseAmountCents) {
+                console.log(`Switching from DAILY (${baseAmountCents}) to HOURLY (${hourlyAmount})`)
+                baseAmountCents = hourlyAmount
+                selectedRule = hourlyRule
             }
         }
-    } else {
-        // Should not fully reach here due to early return above, but for safety:
-        const { data: property } = await supabase
-            .from('properties')
-            .select('price_hourly_cents')
-            .eq('id', propertyId)
-            .single()
-
-        const hourlyRate = property?.price_hourly_cents || 500
-        baseAmountCents = Math.round(hourlyRate * durationHours)
-        selectedRule = null
     }
 
     const { amountCents, discountApplied, discountAmountCents } = await applyDiscount(baseAmountCents, propertyId, discountCode)
+
+    let effectiveDurationHours: number | undefined = undefined;
+    if (selectedRule.is_custom_product && selectedRule.end_time) {
+        effectiveDurationHours = calculateCustomProductDuration(startTime, selectedRule.end_time, propertyTimezone);
+    }
 
     return {
         amountCents,
         ruleApplied: selectedRule,
         discountApplied,
-        discountAmountCents
+        discountAmountCents,
+        effectiveDurationHours
     }
 }
 
@@ -203,17 +145,21 @@ export async function calculatePriceForRule(
 ): Promise<PriceCalculationResult> {
     const supabase = await createClient()
 
-    // Fetch the specific rule
-    const { data: rule, error } = await supabase
+    // Fetch the specific rule and property timezone
+    const { data: ruleData, error } = await supabase
         .from('pricing_rules')
-        .select('*')
+        .select('*, properties(timezone)')
         .eq('id', ruleId)
         .eq('property_id', propertyId)
         .single()
 
-    if (error || !rule) {
+    if (error || !ruleData) {
         throw new Error('Pricing rule not found')
     }
+
+    const { properties, ...ruleObj } = ruleData as any
+    const rule = ruleObj as PricingRule
+    const propertyTimezone = properties?.timezone || 'UTC'
 
     // We assume the rule ID passed is valid and active.
     if (!rule.is_active) {
@@ -231,11 +177,18 @@ export async function calculatePriceForRule(
 
     const { amountCents, discountApplied, discountAmountCents } = await applyDiscount(baseAmountCents, propertyId, discountCode)
 
+    let effectiveDurationHours: number | undefined = undefined;
+    if (rule.is_custom_product && rule.end_time) {
+        // Assume checkout time is now when applying a specific rule directly
+        effectiveDurationHours = calculateCustomProductDuration(new Date(), rule.end_time, propertyTimezone);
+    }
+
     return {
         amountCents,
-        ruleApplied: rule as PricingRule,
+        ruleApplied: rule,
         discountApplied,
-        discountAmountCents
+        discountAmountCents,
+        effectiveDurationHours
     }
 }
 
@@ -282,7 +235,7 @@ async function applyDiscount(baseAmountCents: number, propertyId: string, discou
 }
 
 
-export function isRuleApplicable(rule: PricingRule, date: Date, timezone: string): boolean {
+export function isRuleApplicable(rule: PricingRule, date: Date, timezone: string, durationHours?: number | null): boolean {
     // Convert the input UTC date to the Property's Zoned Time
     const zonedDate = toZonedTime(date, timezone)
 
@@ -302,7 +255,8 @@ export function isRuleApplicable(rule: PricingRule, date: Date, timezone: string
         const ruleEnd = parse(rule.end_time, 'HH:mm:ss', zonedDate)
 
         if (isBefore(ruleEnd, ruleStart)) {
-            // Overnight window
+            // Overnight window (e.g., 16:00 to 12:00)
+            // Valid if time is greater than Start OR less than End
             if (isBefore(zonedDate, ruleStart) && isAfter(zonedDate, ruleEnd)) {
                 return false
             }
@@ -311,6 +265,17 @@ export function isRuleApplicable(rule: PricingRule, date: Date, timezone: string
             if (isBefore(zonedDate, ruleStart) || isAfter(zonedDate, ruleEnd)) {
                 return false
             }
+        }
+    }
+
+    // 3. Check Duration (if provided)
+    if (durationHours !== undefined && durationHours !== null) {
+        const durationMins = durationHours * 60
+        if (rule.min_duration_minutes !== null && durationMins < rule.min_duration_minutes) {
+            return false
+        }
+        if (rule.max_duration_minutes !== null && durationMins > rule.max_duration_minutes) {
+            return false
         }
     }
 
@@ -327,4 +292,19 @@ function calculateRuleAmount(rule: PricingRule, durationHours: number): number {
         // HOURLY
         return rule.amount_cents * durationHours
     }
+}
+
+export function calculateCustomProductDuration(startTime: Date, ruleEndTime: string, timezone: string): number {
+    const zonedNow = toZonedTime(startTime, timezone)
+    const targetTime = parse(ruleEndTime, 'HH:mm:ss', zonedNow)
+
+    let targetEnd = targetTime
+    // If target > now, today. If target < now, tomorrow.
+    // E.g., Now = 11PM, Target = 8AM. Target < Now => Tomorrow.
+    if (isBefore(targetEnd, zonedNow)) {
+        targetEnd = addDays(targetEnd, 1)
+    }
+
+    const diffMs = targetEnd.getTime() - zonedNow.getTime()
+    return diffMs / (1000 * 60 * 60)
 }

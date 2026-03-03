@@ -95,7 +95,10 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
                                         <!-- Content -->
                                         <tr>
                                             <td style="padding: 30px 40px;">
-                                                <h2 style="margin: 0 0 24px 0; font-size: 20px; font-weight: 600; color: #121212;">${title}</h2>
+                                                <h2 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 600; color: #121212;">${title}</h2>
+                                                <p style="margin: 0 0 24px 0; font-size: 15px; color: #666; line-height: 1.5;">
+                                                    ${type === 'EXTENSION' ? 'Your parking session has been successfully extended. Your new expiration time is confirmed below.' : 'Your parking session is confirmed and active. Have a great day!'}
+                                                </p>
                                                 
                                                 <div style="background-color: #F4F4F5; border-radius: 8px; padding: 24px; margin-bottom: 30px;">
                                                     <table width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -120,7 +123,7 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
                                                         <tr>
                                                             <td>
                                                                 <p style="margin: 0; font-size: 13px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">Expiration</p>
-                                                                <p style="margin: 4px 0 0 0; font-size: 18px; font-weight: 600; color: #121212;">${timeString}</p>
+                                                                <p style="margin: 4px 0 0 0; font-size: 18px; font-weight: 600; color: #121212;">${dateTimeString}</p>
                                                             </td>
                                                         </tr>
                                                     </table>
@@ -219,7 +222,7 @@ export async function sendExpiryWarning({ toEmail, toPhone, plate, propertyName,
 
                                                 <div style="background-color: rgba(220, 38, 38, 0.05); border: 1px solid rgba(220, 38, 38, 0.2); border-radius: 8px; padding: 24px; margin-bottom: 30px; text-align: center;">
                                                     <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: #DC2626; text-transform: uppercase; letter-spacing: 0.5px;">Expires At</p>
-                                                    <p style="margin: 0; font-size: 32px; font-weight: 700; color: #DC2626;">${timeString}</p>
+                                                    <p style="margin: 0; font-size: 28px; font-weight: 700; color: #DC2626;">${dateTimeString}</p>
                                                 </div>
 
                                                 <table width="100%" cellpadding="0" cellspacing="0" border="0">

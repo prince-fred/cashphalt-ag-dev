@@ -29,7 +29,7 @@ export async function POST(req: Request) {
             case 'payment_intent.succeeded':
                 const paymentIntent = event.data.object as Stripe.PaymentIntent
                 // Retrieve metadata
-                const { sessionId, type, durationHours } = paymentIntent.metadata
+                const { sessionId, type, durationHours, grantedMinutes } = paymentIntent.metadata
 
                 if (sessionId) {
                     const transactionType = type === 'EXTENSION' ? 'EXTENSION' : 'INITIAL'
@@ -65,9 +65,9 @@ export async function POST(req: Request) {
 
                         // 3. Update Session State
                         if (transactionType === 'EXTENSION') {
-                            const addedHours = parseFloat(durationHours || '0')
+                            const addedMinutes = grantedMinutes ? parseFloat(grantedMinutes) : parseFloat(durationHours || '0') * 60
                             const currentEnd = new Date(sessionData.end_time_current)
-                            newEndTime = new Date(currentEnd.getTime() + addedHours * 60 * 60 * 1000).toISOString()
+                            newEndTime = new Date(currentEnd.getTime() + addedMinutes * 60 * 1000).toISOString()
 
                             const { error: updateError } = await (supabase
                                 .from('sessions') as any)

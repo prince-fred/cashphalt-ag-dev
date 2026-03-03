@@ -6,9 +6,24 @@ import { Database } from '@/db-types'
 
 type PricingRule = Database['public']['Tables']['pricing_rules']['Row']
 
-export async function getParkingPrice(propertyId: string, durationHours: number, discountCode?: string, isCustomProduct?: boolean, unitId?: string) {
+export async function getParkingPrice(propertyId: string, durationHours: number, discountCode?: string, ruleId?: string, unitId?: string) {
     const startTime = new Date()
-    return calculatePrice(propertyId, startTime, durationHours, discountCode, undefined, isCustomProduct, unitId)
+    // Find the property's timezone to pass to calculatePrice
+    const supabase = await createClient()
+    const { data: prop } = await supabase.from('properties').select('timezone').eq('id', propertyId).single()
+    const tz = prop?.timezone || 'UTC'
+
+    let result;
+    if (ruleId) {
+        result = await calculatePriceForRule(propertyId, ruleId, discountCode)
+    } else {
+        result = await calculatePrice(propertyId, startTime, durationHours, discountCode, tz, unitId)
+    }
+
+    return {
+        ...result,
+        rateType: result.ruleApplied?.rate_type || 'HOURLY'
+    }
 }
 
 export async function getParkingPriceForRule(propertyId: string, ruleId: string, discountCode?: string) {
@@ -74,3 +89,71 @@ export const getPropertyBySlugOrId = cache(async (identifier: string) => {
 
     return data
 })
+
+export async function getInitialDuration(propertyId: string, unitId?: string) {
+    const supabase = await createClient()
+    const now = new Date()
+
+    let query = supabase
+        .from('pricing_rules')
+        .select('*, properties(timezone)')
+        .eq('property_id', propertyId)
+        .eq('is_active', true)
+        .not('min_duration_minutes', 'is', null)
+        .order('priority', { ascending: false })
+
+    if (unitId) {
+        query = query.or(`unit_id.is.null,unit_id.eq.${unitId}`)
+    } else {
+        query = query.is('unit_id', null)
+    }
+
+    const { data: rules } = await query
+
+    if (rules && rules.length > 0) {
+        const propertyTimezone = (rules as any[])[0].properties?.timezone || 'UTC'
+        const applicableRule = (rules as any[]).find((r: any) => isRuleApplicable(r as PricingRule, now, propertyTimezone))
+
+        if (applicableRule && applicableRule.min_duration_minutes) {
+            return Math.ceil(applicableRule.min_duration_minutes / 60)
+        }
+    }
+    return null
+}
+
+export async function getCustomProducts(propertyId: string, unitId?: string) {
+    const supabase = await createClient()
+    const now = new Date()
+
+    let query = supabase
+        .from('pricing_rules')
+        .select('*, properties(timezone)')
+        .eq('property_id', propertyId)
+        .eq('is_active', true)
+        .eq('is_custom_product', true)
+        .order('priority', { ascending: false })
+
+    if (unitId) {
+        query = query.or(`unit_id.is.null,unit_id.eq.${unitId}`)
+    } else {
+        query = query.is('unit_id', null)
+    }
+
+    const { data: rules, error } = await query
+
+    if (error) {
+        console.error('Error fetching custom products:', error)
+        return []
+    }
+
+    if (!rules || rules.length === 0) return []
+
+    // Filter by applicability (Time of day, Day of week)
+    const propertyTimezone = (rules as any[])[0].properties?.timezone || 'UTC'
+
+    const validProducts = rules.filter((r: any) => {
+        return isRuleApplicable(r as PricingRule, now, propertyTimezone)
+    })
+
+    return validProducts as PricingRule[]
+}

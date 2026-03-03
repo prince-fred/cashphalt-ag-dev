@@ -92,10 +92,10 @@ export type Database = {
                     qr_enabled: boolean
                     sms_enabled: boolean
                     created_at: string
-                    custom_product_name: string | null
-                    custom_product_end_time: string | null
-                    custom_product_price_cents: number | null
-                    custom_product_enabled: boolean
+                    custom_product_name?: string | null
+                    custom_product_end_time?: string | null
+                    custom_product_price_cents?: number | null
+                    custom_product_enabled?: boolean
                     location_code: string | null
                 }
                 Insert: {
@@ -256,6 +256,7 @@ export type Database = {
                     rate_type: 'HOURLY' | 'FLAT' | 'DAILY'
                     amount_cents: number
                     is_active: boolean
+                    is_custom_product: boolean
                     created_at: string
                 }
                 Insert: {
@@ -273,6 +274,7 @@ export type Database = {
                     rate_type: 'HOURLY' | 'FLAT' | 'DAILY'
                     amount_cents: number
                     is_active?: boolean
+                    is_custom_product?: boolean
                     created_at?: string
                 }
                 Update: {
@@ -290,6 +292,7 @@ export type Database = {
                     rate_type?: 'HOURLY' | 'FLAT' | 'DAILY'
                     amount_cents?: number
                     is_active?: boolean
+                    is_custom_product?: boolean
                     created_at?: string
                 }
                 Relationships: [
