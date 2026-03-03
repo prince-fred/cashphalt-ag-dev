@@ -14,10 +14,17 @@ export async function getParkingPrice(propertyId: string, durationHours: number,
     const tz = prop?.timezone || 'UTC'
 
     let result;
-    if (ruleId) {
-        result = await calculatePriceForRule(propertyId, ruleId, discountCode)
-    } else {
-        result = await calculatePrice(propertyId, startTime, durationHours, discountCode, tz, unitId)
+    try {
+        if (ruleId) {
+            result = await calculatePriceForRule(propertyId, ruleId, discountCode)
+        } else {
+            result = await calculatePrice(propertyId, startTime, durationHours, discountCode, tz, unitId)
+        }
+    } catch (e: any) {
+        if (e.message?.includes('RULES_EXIST_BUT_NOT_APPLICABLE')) {
+            return { error: 'RULES_EXIST_BUT_NOT_APPLICABLE' } as any
+        }
+        throw e
     }
 
     return {

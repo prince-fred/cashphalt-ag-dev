@@ -112,6 +112,12 @@ export function ParkingFlowForm({ property, unit, initialDuration, initialCustom
                 const codeToUse = appliedDiscount?.code
                 const ruleIdToSend = isCustomProduct && activeCustomProductRule ? activeCustomProductRule.id : undefined
                 const res = await getParkingPrice(property.id, duration, codeToUse, ruleIdToSend, unit?.id)
+                if (res.error === 'RULES_EXIST_BUT_NOT_APPLICABLE') {
+                    setIsRestrictedTime(true)
+                    setCheckingPrice(false)
+                    return
+                }
+
                 setPriceCents(res.amountCents)
 
                 if (isCustomProduct && res.effectiveDurationHours) {
@@ -143,9 +149,6 @@ export function ParkingFlowForm({ property, unit, initialDuration, initialCustom
                 setIsRestrictedTime(false) // Clear restriction error on success
             } catch (e: any) {
                 console.error(e)
-                if (e.message?.includes('RULES_EXIST_BUT_NOT_APPLICABLE')) {
-                    setIsRestrictedTime(true)
-                }
             } finally {
                 setCheckingPrice(false)
             }
@@ -160,6 +163,12 @@ export function ParkingFlowForm({ property, unit, initialDuration, initialCustom
         try {
             const ruleIdToSend = isCustomProduct && activeCustomProductRule ? activeCustomProductRule.id : undefined
             const res = await getParkingPrice(property.id, duration, discountCode, ruleIdToSend, unit?.id)
+            if (res.error === 'RULES_EXIST_BUT_NOT_APPLICABLE') {
+                setIsRestrictedTime(true)
+                setCheckingPrice(false)
+                return
+            }
+
             setPriceCents(res.amountCents)
 
             if (isCustomProduct && res.effectiveDurationHours) {
