@@ -35,6 +35,7 @@ export async function calculatePrice(
             .select('*, properties(timezone)')
             .eq('property_id', propertyId)
             .eq('is_active', true)
+            .eq('is_custom_product', false)
             .order('priority', { ascending: false })
 
         if (unitId) {
@@ -61,6 +62,7 @@ export async function calculatePrice(
             .select('*')
             .eq('property_id', propertyId)
             .eq('is_active', true)
+            .eq('is_custom_product', false)
             .order('priority', { ascending: false })
 
         if (unitId) {
