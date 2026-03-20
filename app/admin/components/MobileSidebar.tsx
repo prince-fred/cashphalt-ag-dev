@@ -76,14 +76,14 @@ export function MobileSidebar() {
                     <div className="flex items-center gap-2">
                         <div className="relative w-8 h-8 bg-white rounded p-1">
                             <Image
-                                src="/cashphalt-logo.svg"
-                                alt="Cashphalt Logo"
+                                src="/axis-parking-logo.svg"
+                                alt="Axis Parking Logo"
                                 fill
                                 className="object-contain"
                             />
                         </div>
                         <h1 className="text-xl font-bold tracking-tight text-white">
-                            Cashphalt <span className="text-signal-yellow">Admin</span>
+                            Axis Parking <span className="text-signal-yellow">Admin</span>
                         </h1>
                     </div>
                     <button
@@ -103,8 +103,8 @@ export function MobileSidebar() {
                                 key={link.href}
                                 href={link.href}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium flex-nowrap ${isActive
-                                        ? "text-white bg-white/5"
-                                        : "text-gray-400 hover:text-white hover:bg-white/5"
+                                    ? "text-white bg-white/5"
+                                    : "text-gray-400 hover:text-white hover:bg-white/5"
                                     }`}
                             >
                                 <Icon size={20} className="shrink-0" />

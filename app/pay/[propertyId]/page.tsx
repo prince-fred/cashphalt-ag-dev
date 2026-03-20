@@ -75,7 +75,7 @@ export default async function PublicParkingPage({ params, searchParams }: PagePr
                 {/* Footer */}
                 <div className="mt-8 text-center">
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-widest">
-                        Powered by <span className="text-matte-black">Cashphalt</span>
+                        Powered by <span className="text-matte-black">Axis Parking</span>
                     </p>
                 </div>
             </div>

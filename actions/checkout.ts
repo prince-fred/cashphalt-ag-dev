@@ -147,7 +147,7 @@ export async function createParkingSession({ propertyId, durationHours, ruleId, 
                 propertyId: propertyId,
                 type: 'INITIAL',
                 durationHours: (finalDurationMinutes / 60).toString(),
-                app: 'cashphalt'
+                app: 'axis-parking'
             },
             automatic_payment_methods: { enabled: true }
         }

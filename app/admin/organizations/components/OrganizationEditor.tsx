@@ -165,7 +165,7 @@ export function OrganizationEditor({ organization }: { organization?: Organizati
                                 <span className="text-gray-500 sm:text-sm">%</span>
                             </div>
                         </div>
-                        <p className="text-xs text-slate-500 mt-1">Cashphalt takes this % + $1.00 service fee.</p>
+                        <p className="text-xs text-slate-500 mt-1">Axis Parking takes this % + $1.00 service fee.</p>
                     </div>
                 </div>
             </form>

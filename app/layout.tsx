@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Cashphalt",
+  title: "Axis Parking",
   description: "Parking made simple.",
 };
 

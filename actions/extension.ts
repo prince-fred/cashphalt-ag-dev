@@ -161,7 +161,7 @@ export async function extendSession({ sessionId, durationHours }: ExtendSessionP
             unitName,
             amountCents: 0,
             endTime: newEnd,
-            link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://cashphalt.com'}/pay/extend/${sessionId}`,
+            link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://dev.axisparking.io'}/pay/extend/${sessionId}`,
             timezone: propertyTimezone || 'UTC',
             type: 'EXTENSION'
         }).catch(err => console.error('Failed to send free extension receipt:', err))

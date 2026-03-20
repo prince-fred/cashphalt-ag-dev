@@ -35,8 +35,8 @@ export default function LoginPage() {
                 <div className="text-center">
                     <div className="relative w-16 h-16 mx-auto mb-4 bg-slate-900 rounded-xl flex items-center justify-center">
                         <Image
-                            src="/cashphalt-logo.svg"
-                            alt="Cashphalt Logo"
+                            src="/axis-parking-logo.svg"
+                            alt="Axis Parking Logo"
                             width={40}
                             height={40}
                             className="object-contain"

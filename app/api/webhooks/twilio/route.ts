@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     if (property) {
         // Found a Property (Zone)
         console.log(`[Twilio] Found property: ${property.name} (${property.id})`)
-        const link = `${process.env.NEXT_PUBLIC_APP_URL || 'https://cashphalt.com'}/pay/${property.id}`
+        const link = `${process.env.NEXT_PUBLIC_APP_URL || 'https://dev.axisparking.io'}/pay/${property.id}`
         twiml.message(`Welcome to ${property.name}! Click here to pay for parking: ${link}`)
     } else {
         // 3. If Property not found, search Parking Units by location_code
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
 
             const propName = unitProp?.name || 'our parking location'
             console.log(`[Twilio] Found unit: ${unit.name} at ${propName} (${unit.id})`)
-            const link = `${process.env.NEXT_PUBLIC_APP_URL || 'https://cashphalt.com'}/pay/${unit.property_id}?unit=${unit.id}`
+            const link = `${process.env.NEXT_PUBLIC_APP_URL || 'https://dev.axisparking.io'}/pay/${unit.property_id}?unit=${unit.id}`
             twiml.message(`Welcome to ${propName}! Click here to pay for ${unit.name}: ${link}`)
         } else {
             // Not found in either

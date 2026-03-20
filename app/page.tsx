@@ -23,13 +23,13 @@ export default async function Home() {
           <Link href="/" className="flex items-center gap-2">
             <div className="relative w-8 h-8 bg-white rounded p-1">
               <Image
-                src="/cashphalt-logo.svg"
-                alt="Cashphalt Logo"
+                src="/axis-parking-logo.svg"
+                alt="Axis Parking Logo"
                 fill
                 className="object-contain"
               />
             </div>
-            <span className="text-xl font-bold text-white tracking-tight">Cashphalt</span>
+            <span className="text-xl font-bold text-white tracking-tight">Axis Parking</span>
           </Link>
           <Link
             href="/admin"
@@ -93,13 +93,13 @@ export default async function Home() {
       <footer className="border-t border-slate-outline py-12 text-center bg-white">
         <div className="inline-block relative w-10 h-10 mb-4 opacity-20 grayscale">
           <Image
-            src="/cashphalt-logo.svg"
-            alt="Cashphalt Logo"
+            src="/axis-parking-logo.svg"
+            alt="Axis Parking Logo"
             fill
             className="object-contain"
           />
         </div>
-        <p className="font-medium text-gray-400 text-sm">© {new Date().getFullYear()} Cashphalt. Infrastructure Optimized.</p>
+        <p className="font-medium text-gray-400 text-sm">© {new Date().getFullYear()} Axis Parking. Infrastructure Optimized.</p>
       </footer>
     </main>
   );

@@ -17,14 +17,14 @@ export default function AdminLayout({
                     <div className="flex items-center gap-2 mb-2">
                         <div className="relative w-8 h-8 bg-white rounded p-1">
                             <Image
-                                src="/cashphalt-logo.svg"
-                                alt="Cashphalt Logo"
+                                src="/axis-parking-logo.svg"
+                                alt="Axis Parking Logo"
                                 fill
                                 className="object-contain"
                             />
                         </div>
                         <h1 className="text-xl font-bold tracking-tight text-white">
-                            Cashphalt <span className="text-signal-yellow">Admin</span>
+                            Axis Parking <span className="text-signal-yellow">Admin</span>
                         </h1>
                     </div>
 
@@ -105,8 +105,8 @@ export default function AdminLayout({
                     <div className="flex items-center gap-2">
                         <div className="relative w-8 h-8 bg-white rounded p-1 border border-slate-200">
                             <Image
-                                src="/cashphalt-logo.svg"
-                                alt="Cashphalt Logo"
+                                src="/axis-parking-logo.svg"
+                                alt="Axis Parking Logo"
                                 fill
                                 className="object-contain" // The logo is yellow/black, might need contrast on white header. 
                             // Actually the logo is likely designed for light bg (black text) or dark bg (white text). 
@@ -114,7 +114,7 @@ export default function AdminLayout({
                             // If it's transparent, it should work.
                             />
                         </div>
-                        <span className="font-bold text-matte-black">Cashphalt</span>
+                        <span className="font-bold text-matte-black">Axis Parking</span>
                     </div>
                     <MobileSidebar />
                 </header>

@@ -10,8 +10,8 @@ const twilioClient = twilio(
 )
 
 const FROM_PHONE = process.env.TWILIO_PHONE_NUMBER
-// Verified domain: p.cashphalt.com
-const FROM_EMAIL = 'Cashphalt <receipts@p.cashphalt.com>'
+// Verified domain: p.axisparking.io
+const FROM_EMAIL = 'Axis Parking <receipts@axisparking.io>'
 
 interface SendReceiptParams {
     toEmail?: string | null
@@ -147,7 +147,7 @@ export async function sendSessionReceipt({ toEmail, toPhone, plate, propertyName
                                         <tr>
                                             <td style="background-color: #F4F4F5; padding: 24px 40px; text-align: center; border-top: 1px solid #E4E4E7;">
                                                 <p style="margin: 0; font-size: 12px; color: #999;">If you need assistance with your parking session, please contact support.</p>
-                                                <p style="margin: 12px 0 0 0; font-size: 12px; color: #999; font-weight: 600;">Powered by Cashphalt</p>
+                                                <p style="margin: 12px 0 0 0; font-size: 12px; color: #999; font-weight: 600;">Powered by Axis Parking</p>
                                             </td>
                                         </tr>
                                     </table>
@@ -238,7 +238,7 @@ export async function sendExpiryWarning({ toEmail, toPhone, plate, propertyName,
                                         <tr>
                                             <td style="background-color: #F4F4F5; padding: 24px 40px; text-align: center; border-top: 1px solid #E4E4E7;">
                                                 <p style="margin: 0; font-size: 12px; color: #999;">If you need assistance with your parking session, please contact support.</p>
-                                                <p style="margin: 12px 0 0 0; font-size: 12px; color: #999; font-weight: 600;">Powered by Cashphalt</p>
+                                                <p style="margin: 12px 0 0 0; font-size: 12px; color: #999; font-weight: 600;">Powered by Axis Parking</p>
                                             </td>
                                         </tr>
                                     </table>

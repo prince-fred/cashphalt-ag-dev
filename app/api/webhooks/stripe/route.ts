@@ -116,7 +116,7 @@ export async function POST(req: Request) {
                             unitName,
                             amountCents: paymentIntent.amount,
                             endTime: new Date(newEndTime),
-                            link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://cashphalt.com'}/pay/extend/${sessionId}`,
+                            link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://dev.axisparking.io'}/pay/extend/${sessionId}`,
                             timezone: (sessionData.properties as any)?.timezone || 'UTC',
                             type: transactionType === 'EXTENSION' ? 'EXTENSION' : 'INITIAL',
                             allocationMode: (sessionData.properties as any)?.allocation_mode || 'SPOT'

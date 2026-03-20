@@ -47,7 +47,7 @@ export const sendExpiryWarnings = inngest.createFunction(
             for (const session of expiringSessions) {
                 console.log(`[Inngest] Sending warning for session ${session.id}`);
 
-                const link = `${process.env.NEXT_PUBLIC_APP_URL || 'https://cashphalt.com'}/pay/extend/${session.id}`;
+                const link = `${process.env.NEXT_PUBLIC_APP_URL || 'https://dev.axisparking.io'}/pay/extend/${session.id}`;
                 const propertyName = (session.properties as any)?.name || 'Parking Lot';
                 const timezone = (session.properties as any)?.timezone || 'UTC';
 
